@@ -3,9 +3,19 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
+from fastapi.responses import JSONResponse
 
-from multi_tenant_saas_api.dependencies import get_current_principal, get_organisation_api_service
+from multi_tenant_saas_api.dependencies import (
+    get_current_principal,
+    get_idempotency_service,
+    get_organisation_api_service,
+)
+from multi_tenant_saas_api.routes._idempotency import (
+    IDEMPOTENCY_KEY_HEADER,
+    idempotency_conflict_response,
+    idempotency_replay_response,
+)
 from multi_tenant_saas_api.schemas.common import PaginationMeta
 from multi_tenant_saas_api.schemas.organisations import (
     OrganisationCreateRequest,
@@ -15,6 +25,8 @@ from multi_tenant_saas_api.schemas.organisations import (
 )
 from multi_tenant_saas_api.services import (
     CurrentPrincipal,
+    IdempotencyConflictError,
+    IdempotencyService,
     OrganisationNotFoundError,
     PermissionDeniedError,
     TenantAccessDeniedError,
@@ -41,13 +53,35 @@ def create_organisation_router() -> APIRouter:
     )
     async def create_organisation(
         payload: OrganisationCreateRequest,
+        request: Request,
         principal: Annotated[CurrentPrincipal, Depends(get_current_principal)],
         organisation_service: Annotated[
             OrganisationAPIService,
             Depends(get_organisation_api_service),
         ],
-    ) -> OrganisationResponse:
+        idempotency_service: Annotated[
+            IdempotencyService,
+            Depends(get_idempotency_service),
+        ],
+        idempotency_key: Annotated[
+            str | None,
+            Header(alias=IDEMPOTENCY_KEY_HEADER, min_length=1, max_length=255),
+        ] = None,
+    ) -> OrganisationResponse | JSONResponse:
         """Create an organisation and grant the creator the owner role."""
+
+        try:
+            idempotency = await idempotency_service.start_request(
+                key=idempotency_key,
+                principal=principal,
+                method=request.method,
+                path=request.url.path,
+                request_body=payload,
+            )
+        except IdempotencyConflictError as exc:
+            raise idempotency_conflict_response() from exc
+        if idempotency.replay is not None:
+            return idempotency_replay_response(idempotency.replay)
 
         try:
             created = await organisation_service.create_organisation(
@@ -61,7 +95,13 @@ def create_organisation_router() -> APIRouter:
                 detail="organisation slug is already in use",
             ) from exc
 
-        return _created_organisation_response(created)
+        response = _created_organisation_response(created)
+        await idempotency_service.store_response(
+            context=idempotency.context,
+            response_status_code=status.HTTP_201_CREATED,
+            response_body=response.model_dump(mode="json"),
+        )
+        return response
 
     @router.get(
         "",

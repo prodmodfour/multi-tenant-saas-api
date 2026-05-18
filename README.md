@@ -62,9 +62,10 @@ The project currently includes the repository skeleton, FastAPI application shel
 - API key management workflows and routes for owner/admin key creation, metadata listing, revocation, hashed storage, one-time raw key creation responses, and revoked-key authentication denial
 - `POST /auth/register`, `POST /auth/login`, `GET /me`, `POST /orgs`, `GET /orgs`, `GET /orgs/{org_id}`, `PATCH /orgs/{org_id}`, `GET /orgs/{org_id}/members`, `POST /orgs/{org_id}/members`, `PATCH /orgs/{org_id}/members/{user_id}`, `DELETE /orgs/{org_id}/members/{user_id}`, `POST /orgs/{org_id}/projects`, `GET /orgs/{org_id}/projects`, `GET /orgs/{org_id}/projects/{project_id}`, `PATCH /orgs/{org_id}/projects/{project_id}`, `DELETE /orgs/{org_id}/projects/{project_id}`, `POST /orgs/{org_id}/api-keys`, `GET /orgs/{org_id}/api-keys`, `DELETE /orgs/{org_id}/api-keys/{api_key_id}`, and `GET /orgs/{org_id}/audit-events`
 - successful registration/login, organisation create/update, member add/update/remove, project create/update/delete, and API key create/revoke audit event writes through the append-only audit service with secret-safe metadata
+- idempotency support for `POST /orgs`, `POST /orgs/{org_id}/projects`, and `POST /orgs/{org_id}/api-keys`, scoped by principal, method, path, request body hash, and organisation where applicable
 - documentation and decisions directories
 
-Idempotency replay behaviour, readiness checks, metrics, Docker, and CI are intentionally not implemented yet; they will be added by later build tickets. The RBAC services are wired into the organisation, membership, project, API key, and audit APIs and remain available for future tenant-scoped routes.
+Readiness checks, metrics, Docker, and CI are intentionally not implemented yet; they will be added by later build tickets. The RBAC services are wired into the organisation, membership, project, API key, audit, and idempotency-aware APIs and remain available for future tenant-scoped routes.
 
 ## Requirements
 
@@ -130,7 +131,7 @@ Password hashes and raw passwords are never returned by these endpoints. Registr
 
 Organisation endpoints:
 
-- `POST /orgs` — requires a bearer token, creates an organisation, derives a slug from the name when one is not supplied, enforces unique slugs, makes the creator an `owner`, and records a secret-safe audit event.
+- `POST /orgs` — requires a bearer token, creates an organisation, derives a slug from the name when one is not supplied, enforces unique slugs, makes the creator an `owner`, records a secret-safe audit event, and supports `Idempotency-Key` replay/conflict handling scoped to the user principal.
 - `GET /orgs` — requires a bearer token and returns only organisations where the current user has a membership, with `limit`/`offset` pagination metadata.
 - `GET /orgs/{org_id}` — requires tenant membership and `read_organisation` permission.
 - `PATCH /orgs/{org_id}` — requires tenant membership and `update_organisation` permission, so `owner` and `admin` members may update metadata while `member` and `viewer` roles are denied.
@@ -146,7 +147,7 @@ Membership endpoints:
 
 Project endpoints:
 
-- `POST /orgs/{org_id}/projects` — requires tenant membership and `write_projects` for user access, so `owner`, `admin`, and `member` roles can create projects while `viewer` is denied. Active API keys for the same organisation can also create projects.
+- `POST /orgs/{org_id}/projects` — requires tenant membership and `write_projects` for user access, so `owner`, `admin`, and `member` roles can create projects while `viewer` is denied. Active API keys for the same organisation can also create projects. `Idempotency-Key` replay/conflict handling is scoped to the principal, route organisation, method, path, and body hash.
 - `GET /orgs/{org_id}/projects` — requires `read_projects` for user access or an active API key for the same organisation. It returns non-deleted projects scoped to that organisation only and supports `limit`, `offset`, optional `status`, optional case-insensitive `name` search, `sort_by` (`created_at`, `name`, or `status`), and `sort_direction` (`asc` or `desc`).
 - `GET /orgs/{org_id}/projects/{project_id}` — requires project read access and enforces both organisation ID and project ID in the repository lookup, so project IDs from other organisations return a safe not-found response.
 - `PATCH /orgs/{org_id}/projects/{project_id}` — requires project write access, updates supplied project fields, supports clearing `description` with `null`, and records a `project.updated` audit event.
@@ -154,7 +155,7 @@ Project endpoints:
 
 API key endpoints:
 
-- `POST /orgs/{org_id}/api-keys` — requires tenant membership and `manage_api_keys`, so only `owner` and `admin` members can create API keys. The response returns `raw_key` exactly once and persists only `key_hash` plus `key_prefix` metadata.
+- `POST /orgs/{org_id}/api-keys` — requires tenant membership and `manage_api_keys`, so only `owner` and `admin` members can create API keys. The initial response returns `raw_key` exactly once and persists only `key_hash` plus `key_prefix` metadata. Idempotent replays return stored key metadata plus a replay note and do not return or store raw key material.
 - `GET /orgs/{org_id}/api-keys` — requires `manage_api_keys` and returns paginated metadata only; it never returns raw keys or key hashes.
 - `DELETE /orgs/{org_id}/api-keys/{api_key_id}` — requires `manage_api_keys`, revokes the key, and records a secret-safe `api_key.revoked` audit event.
 
@@ -165,6 +166,13 @@ Audit endpoints:
 - `GET /orgs/{org_id}/audit-events` — requires tenant membership and `read_audit_events`, so only `owner` and `admin` members can read paginated audit logs. `member`, `viewer`, non-member, and cross-tenant requests are denied before audit rows are listed.
 
 Audit events are append-only at the API/service layer. Metadata is intentionally small and secret-safe; the audit service rejects obvious secret-bearing metadata field names such as raw keys, key hashes, passwords, bearer tokens, and authorization values.
+
+Idempotency:
+
+- `POST /orgs`, `POST /orgs/{org_id}/projects`, and `POST /orgs/{org_id}/api-keys` accept an optional `Idempotency-Key` header.
+- Reusing the same key with the same principal, method, path, organisation scope, and request body hash returns the stored response with `Idempotency-Replayed: true`.
+- Reusing the same key with a different request body returns `409 Conflict` without exposing body hashes.
+- API key creation replay intentionally omits `raw_key`; raw API key material is returned only by the initial create response and is never persisted in idempotency snapshots.
 
 ## Role model and tenant access policy
 
@@ -185,7 +193,7 @@ The current domain layer defines organisation roles (`owner`, `admin`, `member`,
 
 Password fields use secret-safe request types, response schemas do not include password hashes, and API key metadata schemas do not include raw keys or key hashes. The password utility enforces a configurable local policy and hashes new passwords with pwdlib's recommended Argon2id hasher before persistence. The bearer-token utility signs short-lived local demo access tokens and validates them into an authenticated user principal for `GET /me`. The API key utility generates high-entropy random keys, stores a deterministic SHA-256 hash plus a short prefix, and resolves active keys for project endpoints only. Production systems need real secret management, TLS, token/key rotation, monitoring, and hardened identity review.
 
-The database model stores `password_hash` and `key_hash` fields only; raw API key material is represented only by the intentional one-time API key creation response schema and is not replayed by list or revoke responses.
+The database model stores `password_hash` and `key_hash` fields only; raw API key material is represented only by the intentional one-time API key creation response schema and is not replayed by list, revoke, or idempotency replay responses. API key creation idempotency snapshots store only metadata and a replay note.
 
 Repository classes live under `multi_tenant_saas_api.repositories` and own SQLAlchemy statement construction for business persistence operations. Service and route layers should call these repositories rather than querying ORM models directly. Repository methods that access tenant-owned business data require an organisation scope or a user-membership scope where applicable; RBAC decisions are handled by service-layer tenant contexts.
 

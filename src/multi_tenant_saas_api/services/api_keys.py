@@ -151,6 +151,20 @@ class APIKeyAPIService:
         self._audit = audit_service or AuditService(session=session)
         self._key_secrets = key_secret_service or APIKeySecretService()
 
+    async def ensure_can_create_api_key(
+        self,
+        *,
+        principal: CurrentPrincipal,
+        organisation_id: UUID | OrganisationID,
+    ) -> None:
+        """Ensure a principal currently has API key creation access."""
+
+        await self._rbac.get_tenant_context(
+            principal=principal,
+            organisation_id=_uuid_from_organisation_id(organisation_id),
+            required_permission=Permission.MANAGE_API_KEYS,
+        )
+
     async def create_api_key(
         self,
         *,

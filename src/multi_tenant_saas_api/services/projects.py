@@ -92,6 +92,20 @@ class ProjectAPIService:
         self._projects = project_repository or ProjectRepository(session)
         self._audit = audit_service or AuditService(session=session)
 
+    async def ensure_can_create_project(
+        self,
+        *,
+        principal: ProjectPrincipal,
+        organisation_id: UUID | OrganisationID,
+    ) -> None:
+        """Ensure a principal currently has project creation access."""
+
+        await self._require_project_permission(
+            principal=principal,
+            organisation_id=organisation_id,
+            required_permission=Permission.WRITE_PROJECTS,
+        )
+
     async def create_project(
         self,
         *,

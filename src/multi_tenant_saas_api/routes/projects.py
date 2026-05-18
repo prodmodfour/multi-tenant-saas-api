@@ -3,10 +3,20 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
+from fastapi.responses import JSONResponse
 
-from multi_tenant_saas_api.dependencies import get_project_api_service, get_project_principal
+from multi_tenant_saas_api.dependencies import (
+    get_idempotency_service,
+    get_project_api_service,
+    get_project_principal,
+)
 from multi_tenant_saas_api.domain import ProjectSortField, ProjectStatus, SortDirection
+from multi_tenant_saas_api.routes._idempotency import (
+    IDEMPOTENCY_KEY_HEADER,
+    idempotency_conflict_response,
+    idempotency_replay_response,
+)
 from multi_tenant_saas_api.schemas.common import PaginationMeta
 from multi_tenant_saas_api.schemas.projects import (
     ProjectCreateRequest,
@@ -15,6 +25,8 @@ from multi_tenant_saas_api.schemas.projects import (
     ProjectUpdateRequest,
 )
 from multi_tenant_saas_api.services import (
+    IdempotencyConflictError,
+    IdempotencyService,
     OrganisationNotFoundError,
     PermissionDeniedError,
     ProjectPrincipal,
@@ -42,10 +54,44 @@ def create_project_router() -> APIRouter:
     async def create_project(
         organisation_id: UUID,
         payload: ProjectCreateRequest,
+        request: Request,
         principal: Annotated[ProjectPrincipal, Depends(get_project_principal)],
         project_service: Annotated[ProjectAPIService, Depends(get_project_api_service)],
-    ) -> ProjectResponse:
+        idempotency_service: Annotated[
+            IdempotencyService,
+            Depends(get_idempotency_service),
+        ],
+        idempotency_key: Annotated[
+            str | None,
+            Header(alias=IDEMPOTENCY_KEY_HEADER, min_length=1, max_length=255),
+        ] = None,
+    ) -> ProjectResponse | JSONResponse:
         """Create a tenant-scoped project for users with write access or API keys."""
+
+        try:
+            if idempotency_key is not None:
+                await project_service.ensure_can_create_project(
+                    principal=principal,
+                    organisation_id=organisation_id,
+                )
+            idempotency = await idempotency_service.start_request(
+                key=idempotency_key,
+                principal=principal,
+                method=request.method,
+                path=request.url.path,
+                request_body=payload,
+                organisation_id=organisation_id,
+            )
+        except IdempotencyConflictError as exc:
+            raise idempotency_conflict_response() from exc
+        except OrganisationNotFoundError as exc:
+            raise _not_found("organisation was not found") from exc
+        except PermissionDeniedError as exc:
+            raise _forbidden("insufficient permissions for this organisation") from exc
+        except TenantAccessDeniedError as exc:
+            raise _forbidden("organisation access denied") from exc
+        if idempotency.replay is not None:
+            return idempotency_replay_response(idempotency.replay)
 
         try:
             project = await project_service.create_project(
@@ -62,7 +108,13 @@ def create_project_router() -> APIRouter:
         except TenantAccessDeniedError as exc:
             raise _forbidden("organisation access denied") from exc
 
-        return _project_response(project)
+        response = _project_response(project)
+        await idempotency_service.store_response(
+            context=idempotency.context,
+            response_status_code=status.HTTP_201_CREATED,
+            response_body=response.model_dump(mode="json"),
+        )
+        return response
 
     @router.get(
         "",

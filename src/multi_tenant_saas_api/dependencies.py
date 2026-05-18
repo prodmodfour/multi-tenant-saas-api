@@ -15,6 +15,7 @@ from multi_tenant_saas_api.services import (
     APIKeyAuthenticationService,
     AuditService,
     CurrentPrincipal,
+    IdempotencyService,
     PasswordHashingService,
     PrincipalResolutionError,
     ProjectPrincipal,
@@ -106,6 +107,14 @@ def get_audit_service(
     return AuditService(session=session, rbac_service=rbac_service)
 
 
+def get_idempotency_service(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> IdempotencyService:
+    """Build the idempotency workflow service for one request."""
+
+    return IdempotencyService(session=session)
+
+
 def get_api_key_authentication_service(
     session: Annotated[AsyncSession, Depends(get_session)],
     rbac_service: Annotated[RBACService, Depends(get_rbac_service)],
@@ -179,6 +188,7 @@ __all__ = [
     "get_audit_service",
     "get_auth_api_service",
     "get_current_principal",
+    "get_idempotency_service",
     "get_membership_api_service",
     "get_organisation_api_service",
     "get_project_api_service",

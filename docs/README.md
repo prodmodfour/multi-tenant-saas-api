@@ -66,3 +66,14 @@ Implemented audit endpoint:
 - `GET /orgs/{org_id}/audit-events`: requires tenant membership and `read_audit_events`, so only `owner` and `admin` members can read audit logs. `member`, `viewer`, non-member, and cross-tenant requests are denied before audit rows are listed. Responses use `limit`/`offset` pagination metadata and return newest events first.
 
 Audit event creation is centralised in an append-only audit service used by core business workflows. The service records registration/login, organisation create/update, member add/role-change/remove, project create/update/delete, and API key create/revoke events. It exposes no public update/delete workflow for audit events and rejects obvious secret-bearing metadata fields such as passwords, password hashes, raw API keys, key hashes, bearer tokens, and authorization values. API key metadata may include non-secret labels and short key prefixes for operator identification.
+
+## Idempotency
+
+Implemented creation idempotency:
+
+- `POST /orgs`, `POST /orgs/{org_id}/projects`, and `POST /orgs/{org_id}/api-keys` accept an optional `Idempotency-Key` header.
+- Records are scoped by authenticated principal, HTTP method, path, request body hash, and organisation ID where applicable so keys cannot replay behaviour across users, API keys, tenants, methods, or endpoints.
+- Reusing the same key and body returns the stored response with `Idempotency-Replayed: true`.
+- Reusing the same key with a different body returns `409 Conflict` without exposing the stored or incoming body hash.
+- Organisation-scoped idempotent replays still perform current tenant permission checks before returning stored project or API key creation responses.
+- API key creation snapshots intentionally omit one-time raw key material. The initial create response returns `raw_key`; replay responses return stored API key metadata plus an `idempotency_replay` note and never return or persist the raw key.

@@ -571,7 +571,7 @@ Commit when complete.
 
 ## 013 — Add idempotency support
 
-Status: TODO
+Status: DONE
 
 Implement idempotency middleware/service or explicit route integration.
 

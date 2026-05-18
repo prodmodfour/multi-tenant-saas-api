@@ -44,6 +44,17 @@ from multi_tenant_saas_api.services.auth_api import (
     InvalidCredentialsError,
     PublicUser,
 )
+from multi_tenant_saas_api.services.idempotency import (
+    IdempotencyConflictError,
+    IdempotencyContext,
+    IdempotencyDecision,
+    IdempotencyReplay,
+    IdempotencySecretSnapshotRejectedError,
+    IdempotencyService,
+    IdempotencyServiceError,
+    api_key_idempotency_replay_body,
+    request_hash,
+)
 from multi_tenant_saas_api.services.memberships import (
     MembershipAlreadyExistsError,
     MembershipAPIService,
@@ -114,6 +125,13 @@ __all__ = [
     "InvalidAccessTokenError",
     "InvalidBearerTokenError",
     "InvalidCredentialsError",
+    "IdempotencyConflictError",
+    "IdempotencyContext",
+    "IdempotencyDecision",
+    "IdempotencyReplay",
+    "IdempotencySecretSnapshotRejectedError",
+    "IdempotencyService",
+    "IdempotencyServiceError",
     "LastOwnerProtectionError",
     "MembershipAPIService",
     "MembershipAPIServiceError",
@@ -150,4 +168,6 @@ __all__ = [
     "TargetUserNotFoundError",
     "TenantAccessDeniedError",
     "TenantContext",
+    "api_key_idempotency_replay_body",
+    "request_hash",
 ]

@@ -3,9 +3,19 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
+from fastapi.responses import JSONResponse
 
-from multi_tenant_saas_api.dependencies import get_api_key_api_service, get_current_principal
+from multi_tenant_saas_api.dependencies import (
+    get_api_key_api_service,
+    get_current_principal,
+    get_idempotency_service,
+)
+from multi_tenant_saas_api.routes._idempotency import (
+    IDEMPOTENCY_KEY_HEADER,
+    idempotency_conflict_response,
+    idempotency_replay_response,
+)
 from multi_tenant_saas_api.schemas.api_keys import (
     APIKeyCreateRequest,
     APIKeyCreateResponse,
@@ -16,6 +26,8 @@ from multi_tenant_saas_api.schemas.api_keys import (
 from multi_tenant_saas_api.schemas.common import PaginationMeta
 from multi_tenant_saas_api.services import (
     CurrentPrincipal,
+    IdempotencyConflictError,
+    IdempotencyService,
     OrganisationNotFoundError,
     PermissionDeniedError,
     TenantAccessDeniedError,
@@ -28,6 +40,7 @@ from multi_tenant_saas_api.services.api_keys import (
     PublicAPIKey,
     RevokedAPIKey,
 )
+from multi_tenant_saas_api.services.idempotency import api_key_idempotency_replay_body
 
 
 def create_api_key_router() -> APIRouter:
@@ -44,14 +57,48 @@ def create_api_key_router() -> APIRouter:
     async def create_api_key(
         organisation_id: UUID,
         payload: APIKeyCreateRequest,
+        request: Request,
         principal: Annotated[CurrentPrincipal, Depends(get_current_principal)],
         api_key_service: Annotated[APIKeyAPIService, Depends(get_api_key_api_service)],
-    ) -> APIKeyCreateResponse:
+        idempotency_service: Annotated[
+            IdempotencyService,
+            Depends(get_idempotency_service),
+        ],
+        idempotency_key: Annotated[
+            str | None,
+            Header(alias=IDEMPOTENCY_KEY_HEADER, min_length=1, max_length=255),
+        ] = None,
+    ) -> APIKeyCreateResponse | JSONResponse:
         """Create an API key for owner/admin members.
 
-        The raw key is returned only by this response. List and revoke responses
-        expose metadata only.
+        The raw key is returned only by the initial create response. Idempotent
+        replays return stored API key metadata without raw key material.
         """
+
+        try:
+            if idempotency_key is not None:
+                await api_key_service.ensure_can_create_api_key(
+                    principal=principal,
+                    organisation_id=organisation_id,
+                )
+            idempotency = await idempotency_service.start_request(
+                key=idempotency_key,
+                principal=principal,
+                method=request.method,
+                path=request.url.path,
+                request_body=payload,
+                organisation_id=organisation_id,
+            )
+        except IdempotencyConflictError as exc:
+            raise idempotency_conflict_response() from exc
+        except OrganisationNotFoundError as exc:
+            raise _not_found("organisation was not found") from exc
+        except PermissionDeniedError as exc:
+            raise _forbidden("insufficient permissions for this organisation") from exc
+        except TenantAccessDeniedError as exc:
+            raise _forbidden("organisation access denied") from exc
+        if idempotency.replay is not None:
+            return idempotency_replay_response(idempotency.replay)
 
         try:
             created = await api_key_service.create_api_key(
@@ -66,7 +113,13 @@ def create_api_key_router() -> APIRouter:
         except TenantAccessDeniedError as exc:
             raise _forbidden("organisation access denied") from exc
 
-        return _created_api_key_response(created)
+        response = _created_api_key_response(created)
+        await idempotency_service.store_response(
+            context=idempotency.context,
+            response_status_code=status.HTTP_201_CREATED,
+            response_body=api_key_idempotency_replay_body(response.model_dump(mode="json")),
+        )
+        return response
 
     @router.get(
         "",
