@@ -283,4 +283,12 @@ The Docker Compose stack includes a local PostgreSQL service and runs migrations
 
 ## Documentation
 
-Additional architecture, security, operations, runbook, API walkthrough, and ADR documentation will be added as the corresponding tickets are implemented.
+Detailed documentation is available under `docs/`:
+
+- [Architecture](docs/architecture.md)
+- [Security model](docs/security.md)
+- [API walkthrough](docs/api-walkthrough.md)
+- [Operations guide](docs/operations.md)
+- [Runbook](docs/runbook.md)
+
+ADR documentation will be added in the dedicated ADR ticket.

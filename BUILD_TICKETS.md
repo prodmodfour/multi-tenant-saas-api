@@ -757,7 +757,7 @@ Commit when complete.
 
 ## 020 — Add docs: architecture, security, operations, runbook, API walkthrough
 
-Status: TODO
+Status: DONE
 
 Create or complete:
 

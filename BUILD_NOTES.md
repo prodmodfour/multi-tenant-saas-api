@@ -2,7 +2,7 @@
 
 ## Current state
 
-Tickets 000 through 019 are complete. The repository has a Python 3.12 `src/` layout, FastAPI app shell, environment-backed settings, structured JSON logging, request ID propagation, health/readiness/metrics endpoints, async SQLAlchemy persistence, Alembic migrations, repository layer, local demo auth, RBAC/tenant context, organisation APIs, membership management, tenant-scoped project APIs, organisation API key management, API key project authentication, an audit log API, idempotency support for selected unsafe creation endpoints, Prometheus metrics instrumentation, a local Docker Compose stack, local Prometheus/Grafana observability configuration, and GitHub Actions CI.
+Tickets 000 through 020 are complete. The repository has a Python 3.12 `src/` layout, FastAPI app shell, environment-backed settings, structured JSON logging, request ID propagation, health/readiness/metrics endpoints, async SQLAlchemy persistence, Alembic migrations, repository layer, local demo auth, RBAC/tenant context, organisation APIs, membership management, tenant-scoped project APIs, organisation API key management, API key project authentication, an audit log API, idempotency support for selected unsafe creation endpoints, Prometheus metrics instrumentation, a local Docker Compose stack, local Prometheus/Grafana observability configuration, GitHub Actions CI, and dedicated architecture/security/API/operations/runbook documentation.
 
 Implemented application behaviour currently includes:
 
@@ -24,6 +24,7 @@ Implemented application behaviour currently includes:
 - basic Grafana dashboard JSON for API request rate, latency percentiles, auth attempts, domain workflow counters, idempotency outcomes, and audit events
 - GitHub Actions CI workflow at `.github/workflows/ci.yml` using Python 3.12, uv, a PostgreSQL service container, shell syntax checks, automation guardrails, Ruff, mypy, Docker Compose config validation, Alembic migration upgrade, and pytest with coverage
 - automation guardrail scripts for public-safety/private-term scanning, route-layer architecture boundary checks, and secret-looking response schema checks
+- dedicated docs at `docs/architecture.md`, `docs/security.md`, `docs/api-walkthrough.md`, `docs/operations.md`, and `docs/runbook.md`
 - `POST /auth/register` for local demo user registration with hashed password persistence only
 - `POST /auth/login` for local demo bearer-token login
 - auth attempt metrics for registration/login success and failure outcomes
@@ -87,7 +88,7 @@ Ran `scripts/quality-gate.sh` successfully. The gate completed:
 - Ruff check
 - Ruff format check
 - mypy strict checks for `src` and `tests`
-- pytest with coverage (`122 passed`)
+- pytest with coverage (`124 passed`)
 - Docker Compose config validation
 - public-safety, architecture-boundary, and secret-leakage guardrails
 
@@ -109,30 +110,30 @@ The committed `example.env` and `docker-compose.yml` use local placeholder value
 
 ## Latest cycle notes
 
-Implemented Ticket 019:
+Implemented Ticket 020:
 
-- added `scripts/guardrails.py` plus shell wrappers for public-safety/private-term checks, route-layer architecture boundary checks, and secret-looking response schema checks
-- public-safety guardrail scans tracked/non-ignored files for committed `.env` files, high-confidence secret token shapes, internal-looking hostnames, sample-file secret values, and locally supplied forbidden terms via `SAAS_API_FORBIDDEN_TERMS_FILE`
-- architecture guardrail rejects obvious route-layer imports of SQLAlchemy/database/repository modules and direct persistence or hashing/token utility calls in route modules
-- secret-leakage guardrail rejects secret-looking fields on public response schema classes while allowing the intentional `LoginResponse.access_token` and one-time `APIKeyCreateResponse.raw_key` fields
-- wired the guardrail scripts into GitHub Actions CI as required commands and documented the guardrails in README/docs
-- added guardrail tests covering passing placeholder examples, `.env`/secret pattern failures, local forbidden terms, raw bearer examples, route persistence violations, and response secret-field violations
+- added `docs/architecture.md` covering runtime components, layer boundaries, request flow, domain model, tenant isolation, RBAC, auth, API keys, audit logging, idempotency, observability, and production-hardening gaps
+- added `docs/security.md` covering public-safety boundaries, authentication/token/API-key handling, tenant isolation, audit metadata safety, idempotency safety, logging, configuration, and production-hardening gaps
+- added `docs/api-walkthrough.md` with a safe placeholder-based tour of registration, login, current user, organisations, memberships, projects, API keys, audit events, health/readiness, metrics, pagination, and common errors
+- added `docs/operations.md` covering local prerequisites, Docker Compose operation, configuration, migrations, health/readiness, metrics, logs, CI/quality gates, data retention, deployment considerations, and operational limitations
+- added `docs/runbook.md` covering local triage for startup, readiness, migrations, authentication, tenant access, last-owner protection, idempotency conflicts, API keys, audit events, metrics/dashboards, quality gate failures, and suspected secret exposure
+- updated the README and docs index to link to the new documentation set
+- added documentation tests that verify required topic docs exist and cover core themes
 
 Quality gates run:
 
-- targeted check completed successfully: `uv run pytest tests/test_guardrails.py tests/test_ci_workflow.py`
-- targeted static checks completed successfully: `uv run ruff check .`, `uv run ruff format --check .`, and `uv run mypy tests/test_guardrails.py tests/test_ci_workflow.py`
+- targeted check completed successfully: `uv run pytest tests/test_documentation.py`
+- targeted static checks completed successfully: `uv run ruff check tests/test_documentation.py`, `uv run ruff format --check tests/test_documentation.py`, and `uv run mypy tests/test_documentation.py`
+- public-safety guardrail completed successfully after adding docs
 - `scripts/quality-gate.sh` completed successfully after implementation
-- gate covered shell syntax checks, `uv sync --locked --all-groups`, Ruff check, Ruff format check, mypy strict checks, pytest with coverage (`122 passed`), Docker Compose config validation, and all three guardrail scripts
+- gate covered shell syntax checks, `uv sync --locked --all-groups`, Ruff check, Ruff format check, mypy strict checks, pytest with coverage (`124 passed`), Docker Compose config validation, and all three guardrail scripts
 
 Limitations:
 
-- Automation guardrails are heuristic static checks, not a substitute for reviewed secret scanning, security review, or production data-loss prevention controls.
-- The public-safety forbidden-term list is intentionally supplied from a local uncommitted file; no private/employer terms are committed to the repository.
-- The architecture guardrail catches obvious route-to-database violations but cannot prove every future workflow respects layering or tenant scoping.
-- The secret-response guardrail checks schema field names and still relies on service/API tests and review to prove runtime responses remain secret-safe.
-- Existing project limitations remain: Compose credentials and JWT settings are local placeholders only, observability is local-demo oriented, API key scopes are coarse-grained, and idempotency cleanup/concurrency hardening is not implemented.
+- The new documentation is descriptive guidance for a portfolio/demo API, not production operating procedures for a real customer environment.
+- Examples intentionally use placeholders only and avoid executable demo automation; the dedicated smoke/demo script remains for the next demo-focused ticket.
+- Existing project limitations remain: Compose credentials and JWT settings are local placeholders only, observability is local-demo oriented, API key scopes are coarse-grained, idempotency cleanup/concurrency hardening is not implemented, and local auth is not a hardened identity platform.
 
 ## Next recommended ticket
 
-Ticket 020.
+Ticket 021.

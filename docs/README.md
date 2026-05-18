@@ -1,6 +1,14 @@
 # Documentation
 
-Project documentation will be expanded as implementation tickets add architecture, API behaviour, operations, security guidance, runbooks, and ADRs.
+Project documentation for the implemented API is organised by topic:
+
+- [Architecture](architecture.md)
+- [Security model](security.md)
+- [API walkthrough](api-walkthrough.md)
+- [Operations guide](operations.md)
+- [Runbook](runbook.md)
+
+ADR documentation will be added under `docs/decisions/` in the dedicated ADR ticket.
 
 ## Continuous integration
 
