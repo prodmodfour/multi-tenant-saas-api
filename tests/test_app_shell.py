@@ -67,6 +67,10 @@ def test_settings_are_loaded_from_saas_api_environment(monkeypatch: MonkeyPatch)
         "SAAS_API_DATABASE_URL",
         "postgresql+asyncpg://saas_api:placeholder@localhost:5432/saas_api_test",
     )
+    monkeypatch.setenv("SAAS_API_JWT_SECRET", "configured-placeholder-jwt-secret")
+    monkeypatch.setenv("SAAS_API_JWT_ISSUER", "configured-issuer")
+    monkeypatch.setenv("SAAS_API_ACCESS_TOKEN_TTL_SECONDS", "60")
+    monkeypatch.setenv("SAAS_API_PASSWORD_MIN_LENGTH", "16")
 
     settings = Settings()
 
@@ -77,3 +81,7 @@ def test_settings_are_loaded_from_saas_api_environment(monkeypatch: MonkeyPatch)
         settings.database_url
         == "postgresql+asyncpg://saas_api:placeholder@localhost:5432/saas_api_test"
     )
+    assert settings.jwt_secret.get_secret_value() == "configured-placeholder-jwt-secret"
+    assert settings.jwt_issuer == "configured-issuer"
+    assert settings.access_token_ttl_seconds == 60
+    assert settings.password_min_length == 16

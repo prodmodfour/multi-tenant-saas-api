@@ -277,7 +277,7 @@ Commit when complete.
 
 ## 005 — Add password hashing and token authentication utilities
 
-Status: TODO
+Status: DONE
 
 Implement:
 

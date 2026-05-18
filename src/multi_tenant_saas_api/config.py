@@ -3,7 +3,7 @@
 from functools import lru_cache
 from typing import ClassVar, Final
 
-from pydantic import field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from multi_tenant_saas_api import __version__
@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     docs_enabled: bool = False
     database_url: str = "postgresql+asyncpg://saas_api:saas_api@localhost:5432/saas_api"
+    jwt_secret: SecretStr = SecretStr("local-placeholder-jwt-secret-not-for-production")
+    jwt_issuer: str = "multi-tenant-saas-api-local"
+    access_token_ttl_seconds: int = Field(default=900, ge=1)
+    password_min_length: int = Field(default=12, ge=1, le=256)
 
     @field_validator("log_level")
     @classmethod
@@ -45,6 +49,26 @@ class Settings(BaseSettings):
             msg = f"log_level must be one of: {allowed}"
             raise ValueError(msg)
         return normalised
+
+    @field_validator("jwt_secret")
+    @classmethod
+    def validate_jwt_secret(cls, value: SecretStr) -> SecretStr:
+        """Ensure the local token signing secret is configured."""
+
+        if value.get_secret_value().strip() == "":
+            msg = "jwt_secret must not be empty"
+            raise ValueError(msg)
+        return value
+
+    @field_validator("jwt_issuer")
+    @classmethod
+    def validate_jwt_issuer(cls, value: str) -> str:
+        """Ensure bearer access tokens have a non-empty issuer."""
+
+        if value.strip() == "":
+            msg = "jwt_issuer must not be empty"
+            raise ValueError(msg)
+        return value
 
 
 @lru_cache(maxsize=1)

@@ -2,7 +2,7 @@
 
 ## Current state
 
-Tickets 000, 001, 002, 003, and 004 are complete. The repository now has the initial Python 3.12 `src/` layout, packaging configuration, documentation placeholders, local placeholder configuration, a Makefile, a basic import test, a minimal FastAPI application shell, the first domain/schema contracts, the initial PostgreSQL persistence foundation, and a repository layer that owns SQLAlchemy business data access.
+Tickets 000, 001, 002, 003, 004, and 005 are complete. The repository now has the initial Python 3.12 `src/` layout, packaging configuration, documentation placeholders, local placeholder configuration, a Makefile, a basic import test, a minimal FastAPI application shell, the first domain/schema contracts, the initial PostgreSQL persistence foundation, a repository layer that owns SQLAlchemy business data access, and authentication utility services for password hashing plus bearer access tokens.
 
 Implemented application behaviour currently includes:
 
@@ -26,8 +26,12 @@ Implemented domain/schema/persistence contracts currently include:
 - repository classes for users, organisations, memberships, projects, API keys, audit events, and idempotency records
 - tenant-scoped repository methods for membership lists, projects, API key management, audit event reads, and idempotency lookups
 - last-owner support queries through the membership repository
+- password policy checks backed by `SAAS_API_PASSWORD_MIN_LENGTH`
+- password hashing and verification utilities using pwdlib's recommended Argon2id hasher
+- bearer access token creation/validation utilities using a local placeholder JWT signing secret setting
+- a typed authenticated user principal model for future auth dependencies
 
-Authentication workflows, RBAC enforcement, tenant isolation at service/API level, audit logging integration, idempotency replay behaviour, readiness checks, metrics, Docker, and CI are not implemented yet.
+Auth API routes/workflows, RBAC enforcement, tenant isolation at service/API level, audit logging integration, idempotency replay behaviour, readiness checks, metrics, Docker, and CI are not implemented yet.
 
 ## Quality gates
 
@@ -58,24 +62,23 @@ The committed `example.env` uses local placeholder values only and is not suitab
 
 ## Latest cycle notes
 
-Implemented Ticket 004:
+Implemented Ticket 005:
 
-- added `multi_tenant_saas_api.repositories` with repository classes for users, organisations, memberships, projects, API keys, audit events, and idempotency records
-- added create/get/list/update/delete-style methods required for the current domain model while keeping SQLAlchemy statement construction inside the repository layer
-- added user-scoped organisation listing, organisation-scoped membership/project/API key/audit queries, and principal/method/path/key-scoped idempotency lookups
-- added membership repository helpers for owner counts, other-owner checks, and last-owner detection to support later RBAC workflows
-- added soft-delete support at the project repository level using the existing `deleted_at` column
-- kept password and API key persistence secret-safe by accepting/storing only `password_hash` and `key_hash` values in repositories
-- added repository tests using a fake async session to verify created ORM objects, scoped SQL statement construction, mutation methods, secret-safe fields, idempotency scoping, and last-owner helper behaviour
-- updated README current-status and persistence notes to describe the repository layer
+- added `multi_tenant_saas_api.services.auth` with password policy validation, Argon2id password hashing/verification, bearer access token creation/validation, and an authenticated user principal model
+- added `pwdlib[argon2]` for password hashing and `PyJWT` for signed bearer access tokens
+- extended settings with `SAAS_API_JWT_SECRET`, `SAAS_API_JWT_ISSUER`, `SAAS_API_ACCESS_TOKEN_TTL_SECONDS`, and `SAAS_API_PASSWORD_MIN_LENGTH`
+- kept JWT secrets as `SecretStr` in settings so repr/logging masks the value
+- added tests for password hash safety, correct/wrong password verification, password policy failures, token validation, expired token handling, invalid token handling, and settings-backed auth service construction
+- updated README configuration and security notes to describe auth utilities and production secret-management requirements
 
 Limitations:
 
-- repositories do not commit transactions; future services/routes will own unit-of-work boundaries
-- repository tests validate behaviour and SQL statement construction with a fake async session; full online PostgreSQL integration remains future work once local Docker Compose/CI database infrastructure is added
-- authentication workflows, password hashing, token handling, RBAC checks, API key authentication, audit service integration, and idempotency replay handling remain future tickets
+- authentication API routes are not implemented yet; future services/routes will call these utilities for registration, login, and current-user workflows
+- token validation currently supports user bearer tokens only; API key authentication remains a future ticket
+- the committed JWT secret is a local placeholder only and is not suitable for production
+- repositories still do not commit transactions; future services/routes will own unit-of-work boundaries
 - no application routes currently open database sessions
 
 ## Next recommended ticket
 
-Ticket 005.
+Ticket 006.

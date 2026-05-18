@@ -28,7 +28,7 @@ This is a portfolio implementation, not a production identity or security baseli
 - Do not commit real secrets, credentials, private data, or employer-specific material.
 - Use only local placeholder values in examples and local development files.
 - Production deployments would require real secret management, TLS, hardened authentication, alerting, backups, and operational review.
-- Passwords and API keys will be stored only as hashes when those features are implemented.
+- Password hashing utilities store only derived hashes; API keys will be stored only as hashes when that workflow is implemented.
 - Raw API key material should only ever be returned by the intentional one-time create response in the future API key workflow.
 
 ## Current status
@@ -51,9 +51,11 @@ The project currently includes the repository skeleton, a minimal FastAPI applic
 - Alembic configuration and an initial PostgreSQL migration
 - repository classes for users, organisations, memberships, projects, API keys, audit events, and idempotency records
 - tenant-scoped repository methods for organisation membership lists, project access, API key management, audit event reads, and idempotency lookups
+- password policy checks plus Argon2id password hashing and verification utilities
+- signed bearer access token creation/validation utilities and a typed authenticated principal model
 - documentation and decisions directories
 
-Authentication workflows, RBAC enforcement, tenant isolation at service/API level, audit logging integration, idempotency replay behaviour, metrics, Docker, and CI are intentionally not implemented yet; they will be added by later build tickets.
+Auth API routes, RBAC enforcement, tenant isolation at service/API level, audit logging integration, idempotency replay behaviour, metrics, Docker, and CI are intentionally not implemented yet; they will be added by later build tickets.
 
 ## Requirements
 
@@ -94,6 +96,10 @@ Configuration uses environment variables prefixed with `SAAS_API_`. See `example
 | `SAAS_API_LOG_LEVEL` | `INFO` | Structured JSON logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`). |
 | `SAAS_API_DOCS_ENABLED` | `false` | Enables `/docs`, `/redoc`, and `/openapi.json` for local exploration when set to `true`. |
 | `SAAS_API_DATABASE_URL` | `postgresql+asyncpg://saas_api:saas_api@localhost:5432/saas_api` | Async SQLAlchemy PostgreSQL URL used by the application and Alembic migrations. The default is a local placeholder only. |
+| `SAAS_API_JWT_SECRET` | `local-placeholder-jwt-secret-not-for-production` | Local placeholder signing secret for demo bearer access tokens. Production systems require managed secrets and rotation. |
+| `SAAS_API_JWT_ISSUER` | `multi-tenant-saas-api-local` | Issuer claim used when creating and validating bearer access tokens. |
+| `SAAS_API_ACCESS_TOKEN_TTL_SECONDS` | `900` | Lifetime for local demo bearer access tokens. |
+| `SAAS_API_PASSWORD_MIN_LENGTH` | `12` | Minimum password length enforced by the password policy utility before hashing. |
 
 OpenAPI documentation is disabled by default to model a safer production posture. Enable it only for local exploration or explicitly configured demo environments.
 
@@ -103,7 +109,9 @@ Do not copy real credentials into committed files. If you create a local `.env`,
 
 The current domain layer defines organisation roles (`owner`, `admin`, `member`, `viewer`), service-level permissions, project statuses, and audit action names. The Pydantic schemas define the planned API data contracts only; the backing routes and repository/service workflows are implemented in later tickets.
 
-Password fields use secret-safe request types, response schemas do not include password hashes, and API key metadata schemas do not include raw keys or key hashes. The database model stores `password_hash` and `key_hash` fields only; raw API key material is represented only by the intentional one-time API key creation response schema.
+Password fields use secret-safe request types, response schemas do not include password hashes, and API key metadata schemas do not include raw keys or key hashes. The password utility enforces a configurable local policy and hashes new passwords with pwdlib's recommended Argon2id hasher before persistence. The bearer-token utility signs short-lived local demo access tokens and validates them into an authenticated user principal. Production systems need real secret management, TLS, token/key rotation, monitoring, and hardened identity review.
+
+The database model stores `password_hash` and `key_hash` fields only; raw API key material is represented only by the intentional one-time API key creation response schema.
 
 Repository classes live under `multi_tenant_saas_api.repositories` and own SQLAlchemy statement construction for business persistence operations. Future service and route layers should call these repositories rather than querying ORM models directly. Repository methods that access tenant-owned business data require an organisation scope or a user-membership scope where applicable; RBAC decisions remain a future service-layer responsibility.
 
