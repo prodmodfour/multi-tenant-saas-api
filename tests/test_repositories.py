@@ -18,7 +18,13 @@ from multi_tenant_saas_api.database import (
     Project,
     User,
 )
-from multi_tenant_saas_api.domain import AuditAction, OrganisationRole, ProjectStatus
+from multi_tenant_saas_api.domain import (
+    AuditAction,
+    OrganisationRole,
+    ProjectSortField,
+    ProjectStatus,
+    SortDirection,
+)
 from multi_tenant_saas_api.repositories import (
     APIKeyRepository,
     AuditEventRepository,
@@ -271,6 +277,8 @@ def test_project_repository_uses_tenant_scoped_queries_and_soft_delete() -> None
             status=ProjectStatus.ACTIVE,
             name_search="Billing",
             limit=20,
+            sort_by=ProjectSortField.NAME,
+            sort_direction=SortDirection.ASC,
         )
         count = await project_repository.count_for_organisation(organisation_id=organisation_id)
         updated = await project_repository.update(
@@ -300,6 +308,7 @@ def test_project_repository_uses_tenant_scoped_queries_and_soft_delete() -> None
         assert "projects.organisation_id" in list_sql
         assert "projects.status" in list_sql
         assert "projects.name" in list_sql
+        assert "ORDER BY projects.name ASC" in list_sql
         assert "projects.organisation_id" in count_sql
 
     asyncio.run(scenario())

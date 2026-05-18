@@ -3,7 +3,9 @@ from pytest import raises
 from multi_tenant_saas_api.domain import (
     OrganisationRole,
     Permission,
+    ProjectSortField,
     ProjectStatus,
+    SortDirection,
     permissions_for_role,
     role_has_permission,
 )
@@ -24,6 +26,14 @@ def test_role_validation_rejects_unknown_roles() -> None:
 def test_project_status_validation_accepts_declared_statuses() -> None:
     assert ProjectStatus("active") is ProjectStatus.ACTIVE
     assert ProjectStatus("archived") is ProjectStatus.ARCHIVED
+
+
+def test_project_sort_validation_accepts_declared_fields_and_directions() -> None:
+    assert ProjectSortField("created_at") is ProjectSortField.CREATED_AT
+    assert ProjectSortField("name") is ProjectSortField.NAME
+    assert ProjectSortField("status") is ProjectSortField.STATUS
+    assert SortDirection("asc") is SortDirection.ASC
+    assert SortDirection("desc") is SortDirection.DESC
 
 
 def test_permission_mapping_grants_expected_owner_permissions() -> None:

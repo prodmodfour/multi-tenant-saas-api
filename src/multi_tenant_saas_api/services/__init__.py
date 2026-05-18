@@ -41,6 +41,13 @@ from multi_tenant_saas_api.services.organisations import (
     OrganisationSlugAlreadyExistsError,
     PublicOrganisation,
 )
+from multi_tenant_saas_api.services.projects import (
+    ProjectAPIService,
+    ProjectAPIServiceError,
+    ProjectList,
+    ProjectNotFoundError,
+    PublicProject,
+)
 from multi_tenant_saas_api.services.rbac import (
     CurrentPrincipal,
     LastOwnerProtectionError,
@@ -87,11 +94,16 @@ __all__ = [
     "PasswordPolicyError",
     "PermissionDeniedError",
     "PrincipalResolutionError",
+    "ProjectAPIService",
+    "ProjectAPIServiceError",
+    "ProjectList",
+    "ProjectNotFoundError",
     "PrincipalResolverService",
     "PrincipalType",
     "PublicMembership",
     "PublicMembershipUser",
     "PublicOrganisation",
+    "PublicProject",
     "PublicUser",
     "RBACService",
     "RBACServiceError",

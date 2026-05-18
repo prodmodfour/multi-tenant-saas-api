@@ -43,6 +43,21 @@ class ProjectStatus(StrEnum):
     ARCHIVED = "archived"
 
 
+class ProjectSortField(StrEnum):
+    """Supported fields for project list ordering."""
+
+    CREATED_AT = "created_at"
+    NAME = "name"
+    STATUS = "status"
+
+
+class SortDirection(StrEnum):
+    """Supported sort directions for paginated list endpoints."""
+
+    ASC = "asc"
+    DESC = "desc"
+
+
 class AuditAction(StrEnum):
     """Business actions recorded in append-only audit events."""
 
@@ -114,8 +129,10 @@ __all__ = [
     "OrganisationRole",
     "Permission",
     "ProjectID",
+    "ProjectSortField",
     "ProjectStatus",
     "ROLE_PERMISSIONS",
+    "SortDirection",
     "UserID",
     "permissions_for_role",
     "role_has_permission",

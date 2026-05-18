@@ -33,7 +33,7 @@ This is a portfolio implementation, not a production identity or security baseli
 
 ## Current status
 
-The project currently includes the repository skeleton, a minimal FastAPI application shell, and the first persistence layer contracts:
+The project currently includes the repository skeleton, FastAPI application shell, persistence layer contracts, and the first tenant-scoped API workflows:
 
 - Python 3.12 package using a `src/` layout
 - Hatchling build backend
@@ -58,11 +58,12 @@ The project currently includes the repository skeleton, a minimal FastAPI applic
 - auth service workflows and routes for registration, login, and current-user lookup
 - organisation service workflows and routes for tenant creation, membership-scoped listing, detail reads, and owner/admin metadata updates
 - membership management service workflows and routes for owner/admin member listing, member add, role update, removal, admin owner-operation restrictions, and last-owner protection
-- `POST /auth/register`, `POST /auth/login`, `GET /me`, `POST /orgs`, `GET /orgs`, `GET /orgs/{org_id}`, `PATCH /orgs/{org_id}`, `GET /orgs/{org_id}/members`, `POST /orgs/{org_id}/members`, `PATCH /orgs/{org_id}/members/{user_id}`, and `DELETE /orgs/{org_id}/members/{user_id}`
-- successful registration/login, organisation create/update, and member add/update/remove audit event writes with secret-safe metadata
+- project service workflows and routes for tenant-scoped create/read/update/soft-delete operations, pagination, status/name filtering, created_at/name/status sorting, and viewer read-only access
+- `POST /auth/register`, `POST /auth/login`, `GET /me`, `POST /orgs`, `GET /orgs`, `GET /orgs/{org_id}`, `PATCH /orgs/{org_id}`, `GET /orgs/{org_id}/members`, `POST /orgs/{org_id}/members`, `PATCH /orgs/{org_id}/members/{user_id}`, `DELETE /orgs/{org_id}/members/{user_id}`, `POST /orgs/{org_id}/projects`, `GET /orgs/{org_id}/projects`, `GET /orgs/{org_id}/projects/{project_id}`, `PATCH /orgs/{org_id}/projects/{project_id}`, and `DELETE /orgs/{org_id}/projects/{project_id}`
+- successful registration/login, organisation create/update, member add/update/remove, and project create/update/delete audit event writes with secret-safe metadata
 - documentation and decisions directories
 
-Project/API-key routes, broader audit read integration, idempotency replay behaviour, readiness checks, metrics, Docker, and CI are intentionally not implemented yet; they will be added by later build tickets. The RBAC services are now wired into the organisation and membership APIs and remain available for future tenant-scoped routes.
+API-key routes, broader audit read integration, idempotency replay behaviour, readiness checks, metrics, Docker, and CI are intentionally not implemented yet; they will be added by later build tickets. The RBAC services are now wired into the organisation, membership, and project APIs and remain available for future tenant-scoped routes.
 
 ## Requirements
 
@@ -142,6 +143,14 @@ Membership endpoints:
 - `PATCH /orgs/{org_id}/members/{user_id}` — requires `manage_members`, changes a member role, prevents admins from changing owner memberships or granting `owner`, protects the final owner from downgrade, and records a `member.role_changed` audit event.
 - `DELETE /orgs/{org_id}/members/{user_id}` — requires `manage_members`, prevents admins from removing owners, protects the final owner from removal, and records a `member.removed` audit event.
 
+Project endpoints:
+
+- `POST /orgs/{org_id}/projects` — requires tenant membership and `write_projects`, so `owner`, `admin`, and `member` roles can create projects while `viewer` is denied.
+- `GET /orgs/{org_id}/projects` — requires `read_projects` and returns non-deleted projects scoped to that organisation only. It supports `limit`, `offset`, optional `status`, optional case-insensitive `name` search, `sort_by` (`created_at`, `name`, or `status`), and `sort_direction` (`asc` or `desc`).
+- `GET /orgs/{org_id}/projects/{project_id}` — requires `read_projects` and enforces both organisation ID and project ID in the repository lookup, so project IDs from other organisations return a safe not-found response.
+- `PATCH /orgs/{org_id}/projects/{project_id}` — requires `write_projects`, updates supplied project fields, supports clearing `description` with `null`, and records a `project.updated` audit event.
+- `DELETE /orgs/{org_id}/projects/{project_id}` — requires `write_projects`, soft-deletes the project, excludes it from future default reads/lists, and records a `project.deleted` audit event.
+
 ## Role model and tenant access policy
 
 Organisations are the tenant boundary. Business workflows must resolve a current authenticated principal, load the user's membership for the target organisation, and enforce permissions before accessing tenant-owned data.
@@ -153,11 +162,11 @@ Organisations are the tenant boundary. Business workflows must resolve a current
 | `member` | Read organisation metadata and read/write projects. |
 | `viewer` | Read organisation metadata and read projects only. |
 
-The RBAC service resolves bearer tokens into secret-safe current principals, builds tenant contexts from organisation memberships, raises explicit not-found/access-denied/permission-denied errors, and protects the invariant that an organisation must always have at least one owner. The organisation and membership APIs use these services for tenant-scoped reads and mutations; future tenant-scoped routes must do the same instead of performing permission checks in route handlers.
+The RBAC service resolves bearer tokens into secret-safe current principals, builds tenant contexts from organisation memberships, raises explicit not-found/access-denied/permission-denied errors, and protects the invariant that an organisation must always have at least one owner. The organisation, membership, and project APIs use these services for tenant-scoped reads and mutations; future tenant-scoped routes must do the same instead of performing permission checks in route handlers.
 
 ## Domain, schema, and persistence contracts
 
-The current domain layer defines organisation roles (`owner`, `admin`, `member`, `viewer`), service-level permissions, project statuses, and audit action names. The Pydantic schemas define the API data contracts, while service workflows own registration, login, current-user business logic, organisation tenant workflows, and RBAC/tenant-context checks for implemented or upcoming protected endpoints.
+The current domain layer defines organisation roles (`owner`, `admin`, `member`, `viewer`), service-level permissions, project statuses, project sort options, and audit action names. The Pydantic schemas define the API data contracts, while service workflows own registration, login, current-user business logic, organisation tenant workflows, membership management, project workflows, and RBAC/tenant-context checks for implemented or upcoming protected endpoints.
 
 Password fields use secret-safe request types, response schemas do not include password hashes, and API key metadata schemas do not include raw keys or key hashes. The password utility enforces a configurable local policy and hashes new passwords with pwdlib's recommended Argon2id hasher before persistence. The bearer-token utility signs short-lived local demo access tokens and validates them into an authenticated user principal for `GET /me`. Production systems need real secret management, TLS, token/key rotation, monitoring, and hardened identity review.
 

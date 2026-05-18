@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import cast
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import func, select
+from sqlalchemy.sql.elements import ColumnElement
 
 from multi_tenant_saas_api.database import Project
-from multi_tenant_saas_api.domain import ProjectStatus
+from multi_tenant_saas_api.domain import ProjectSortField, ProjectStatus, SortDirection
 from multi_tenant_saas_api.repositories.base import BaseRepository
 
 
@@ -72,6 +73,8 @@ class ProjectRepository(BaseRepository):
         status: ProjectStatus | None = None,
         name_search: str | None = None,
         include_deleted: bool = False,
+        sort_by: ProjectSortField = ProjectSortField.CREATED_AT,
+        sort_direction: SortDirection = SortDirection.DESC,
     ) -> list[Project]:
         """List projects scoped to one organisation tenant."""
 
@@ -83,7 +86,12 @@ class ProjectRepository(BaseRepository):
         if not include_deleted:
             stmt = stmt.where(Project.deleted_at.is_(None))
         stmt = (
-            stmt.order_by(Project.created_at.desc(), Project.id.desc()).limit(limit).offset(offset)
+            stmt.order_by(
+                _sort_expression(sort_by=sort_by, sort_direction=sort_direction),
+                Project.id.asc() if sort_direction is SortDirection.ASC else Project.id.desc(),
+            )
+            .limit(limit)
+            .offset(offset)
         )
         result = await self._session.scalars(stmt)
         return list(result.all())
@@ -148,3 +156,26 @@ class ProjectRepository(BaseRepository):
             project.updated_by_user_id = updated_by_user_id
         await self._session.flush()
         return project
+
+
+def _sort_expression(
+    *,
+    sort_by: ProjectSortField,
+    sort_direction: SortDirection,
+) -> ColumnElement[Any]:
+    """Return a validated project ORDER BY expression."""
+
+    sort_column = _sort_column(sort_by)
+    if sort_direction is SortDirection.ASC:
+        return sort_column.asc()
+    return sort_column.desc()
+
+
+def _sort_column(sort_by: ProjectSortField) -> ColumnElement[Any]:
+    """Return the project column associated with a supported sort field."""
+
+    if sort_by is ProjectSortField.NAME:
+        return cast(ColumnElement[Any], Project.name)
+    if sort_by is ProjectSortField.STATUS:
+        return cast(ColumnElement[Any], Project.status)
+    return cast(ColumnElement[Any], Project.created_at)

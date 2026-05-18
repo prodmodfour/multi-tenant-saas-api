@@ -12,6 +12,7 @@ from multi_tenant_saas_api.middleware import install_request_id_middleware
 from multi_tenant_saas_api.routes.auth import create_auth_router
 from multi_tenant_saas_api.routes.memberships import create_membership_router
 from multi_tenant_saas_api.routes.organisations import create_organisation_router
+from multi_tenant_saas_api.routes.projects import create_project_router
 from multi_tenant_saas_api.routes.system import create_system_router
 
 
@@ -51,5 +52,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(create_auth_router())
     app.include_router(create_organisation_router())
     app.include_router(create_membership_router())
+    app.include_router(create_project_router())
 
     return app

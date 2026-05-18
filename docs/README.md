@@ -36,3 +36,15 @@ Implemented membership endpoints:
 - `DELETE /orgs/{org_id}/members/{user_id}`: removes a member, prevents admins from removing owners, protects the final owner from removal, and writes a `member.removed` audit event.
 
 Membership responses embed only public user data (`id`, `email`, `display_name`, and `is_active`) and never include password hashes.
+
+## Project API
+
+Implemented project endpoints:
+
+- `POST /orgs/{org_id}/projects`: creates a project inside one organisation after tenant membership and `write_projects` checks. `owner`, `admin`, and `member` roles may create projects; `viewer` is read-only.
+- `GET /orgs/{org_id}/projects`: lists non-deleted projects scoped to the requested organisation and supports `limit`/`offset` pagination, optional `status` filtering, optional case-insensitive `name` search, `sort_by` (`created_at`, `name`, or `status`), and `sort_direction` (`asc` or `desc`).
+- `GET /orgs/{org_id}/projects/{project_id}`: fetches a project with both organisation ID and project ID in the repository lookup, so IDs from other tenants are not accessible.
+- `PATCH /orgs/{org_id}/projects/{project_id}`: updates supplied project fields after `write_projects` checks and supports clearing `description` with `null`.
+- `DELETE /orgs/{org_id}/projects/{project_id}`: soft-deletes a project after `write_projects` checks, excluding it from default project reads/lists.
+
+Project create, update, and delete workflows write `project.created`, `project.updated`, and `project.deleted` audit events with secret-safe metadata only.

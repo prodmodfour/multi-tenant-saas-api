@@ -455,7 +455,7 @@ Commit when complete.
 
 ## 010 — Add project API with tenant isolation
 
-Status: TODO
+Status: DONE
 
 Implement routes:
 

@@ -18,6 +18,7 @@ from multi_tenant_saas_api.services import (
 from multi_tenant_saas_api.services.auth_api import AuthAPIService
 from multi_tenant_saas_api.services.memberships import MembershipAPIService
 from multi_tenant_saas_api.services.organisations import OrganisationAPIService
+from multi_tenant_saas_api.services.projects import ProjectAPIService
 
 _BEARER_SCHEME = HTTPBearer(auto_error=False)
 
@@ -82,6 +83,15 @@ def get_membership_api_service(
     return MembershipAPIService(session=session, rbac_service=rbac_service)
 
 
+def get_project_api_service(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    rbac_service: Annotated[RBACService, Depends(get_rbac_service)],
+) -> ProjectAPIService:
+    """Build the project workflow service for one request."""
+
+    return ProjectAPIService(session=session, rbac_service=rbac_service)
+
+
 def require_bearer_token(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_BEARER_SCHEME)],
 ) -> str:
@@ -119,6 +129,7 @@ __all__ = [
     "get_current_principal",
     "get_membership_api_service",
     "get_organisation_api_service",
+    "get_project_api_service",
     "get_rbac_service",
     "get_session",
     "get_settings_from_app",
