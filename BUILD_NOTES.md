@@ -2,9 +2,18 @@
 
 ## Current state
 
-Ticket 000 is complete. The repository now has the initial Python 3.12 `src/` layout, packaging configuration, documentation placeholders, local placeholder configuration, a Makefile, and a basic import test.
+Tickets 000 and 001 are complete. The repository now has the initial Python 3.12 `src/` layout, packaging configuration, documentation placeholders, local placeholder configuration, a Makefile, a basic import test, and a minimal FastAPI application shell.
 
-Application behaviour is not implemented yet; the next ticket should add the FastAPI app shell, settings, logging, request ID propagation, and the health endpoint.
+Implemented application behaviour currently includes:
+
+- FastAPI app factory at `multi_tenant_saas_api.app:create_app`
+- environment-backed settings using the `SAAS_API_` prefix
+- docs/OpenAPI disabled by default and explicitly enableable with `SAAS_API_DOCS_ENABLED=true`
+- structured JSON logging configuration
+- `X-Request-ID` propagation and request-scoped log context
+- `GET /healthz`
+
+Persistence, authentication, RBAC, tenant isolation, audit logging, idempotency, metrics, Docker, and CI are not implemented yet.
 
 ## Quality gates
 
@@ -35,22 +44,23 @@ The committed `example.env` uses local placeholder values only and is not suitab
 
 ## Latest cycle notes
 
-Implemented Ticket 000:
+Implemented Ticket 001:
 
-- added `README.md` with portfolio framing, public-safety constraints, and security boundaries
-- added `pyproject.toml` using hatchling, uv dependency groups, Ruff, mypy strict mode, pytest, and pytest-cov
-- added `uv.lock`
-- added `src/multi_tenant_saas_api/` with a typed package marker
-- added `tests/test_import.py`
-- added `docs/` and `docs/decisions/`
-- expanded `.gitignore`
-- added `example.env` with public-safe local placeholders
-- added `Makefile` shortcuts for install, lint, formatting, type checking, tests, and quality gates
+- added FastAPI and pydantic-settings dependencies, plus httpx for API tests
+- added app factory and ASGI entrypoint
+- added settings loaded from `SAAS_API_` environment variables
+- disabled `/docs`, `/redoc`, and `/openapi.json` by default
+- added structured JSON logging setup with request ID context
+- added request middleware that propagates valid inbound `X-Request-ID` values or generates one when absent
+- added `GET /healthz` with application name, version, environment, and status
+- added API tests for health, request ID propagation, docs disabled by default, docs enabled when configured, and environment-backed settings
+- updated README configuration documentation
 
 Limitations:
 
-- no FastAPI application, routes, settings, persistence, authentication, RBAC, tenant isolation, audit logging, idempotency, metrics, Docker stack, or CI has been implemented yet
+- no database, readiness check, metrics, authentication, RBAC, tenant isolation, business APIs, audit logging, or idempotency support yet
+- structured request logs intentionally include method, path, status code, duration, and request ID only; request/response bodies and authentication material are not logged
 
 ## Next recommended ticket
 
-Ticket 001.
+Ticket 002.

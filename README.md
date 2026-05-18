@@ -33,16 +33,20 @@ This is a portfolio implementation, not a production identity or security baseli
 
 ## Current status
 
-Ticket 000 has bootstrapped the repository skeleton:
+The project currently includes the repository skeleton and a minimal FastAPI application shell:
 
 - Python 3.12 package using a `src/` layout
 - Hatchling build backend
 - Ruff, mypy strict mode, pytest, and pytest-cov configuration
 - quality gate script
-- basic package import test
+- FastAPI app factory at `multi_tenant_saas_api.app:create_app`
+- environment-backed settings using the `SAAS_API_` prefix
+- structured JSON logging with request ID context
+- `X-Request-ID` propagation
+- `GET /healthz` liveness endpoint
 - documentation and decisions directories
 
-Application endpoints and persistence are intentionally not implemented yet; they will be added by later build tickets.
+Persistence, authentication, RBAC, tenant isolation, audit logging, idempotency, metrics, Docker, and CI are intentionally not implemented yet; they will be added by later build tickets.
 
 ## Requirements
 
@@ -73,7 +77,17 @@ make quality
 
 ## Configuration
 
-Configuration will use environment variables prefixed with `SAAS_API_`. See `example.env` for public-safe local placeholders.
+Configuration uses environment variables prefixed with `SAAS_API_`. See `example.env` for public-safe local placeholders.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `SAAS_API_APP_NAME` | `multi-tenant-saas-api` | Application name used in FastAPI metadata and health responses. |
+| `SAAS_API_APP_VERSION` | `0.1.0` | Application version used in FastAPI metadata and health responses. |
+| `SAAS_API_ENVIRONMENT` | `local` | Environment label included in health responses and future logs/metrics. |
+| `SAAS_API_LOG_LEVEL` | `INFO` | Structured JSON logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`). |
+| `SAAS_API_DOCS_ENABLED` | `false` | Enables `/docs`, `/redoc`, and `/openapi.json` for local exploration when set to `true`. |
+
+OpenAPI documentation is disabled by default to model a safer production posture. Enable it only for local exploration or explicitly configured demo environments.
 
 Do not copy real credentials into committed files. If you create a local `.env`, keep it untracked.
 
