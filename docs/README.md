@@ -2,6 +2,23 @@
 
 Project documentation will be expanded as implementation tickets add architecture, API behaviour, operations, security guidance, runbooks, and ADRs.
 
+## Local Docker Compose stack
+
+The repository includes a local-only Docker Compose stack for demo exploration. It starts:
+
+- `api`: the FastAPI app image built from the repository Dockerfile, running as a non-root runtime user.
+- `postgres`: local PostgreSQL with public-safe placeholder credentials.
+- `prometheus`: a Prometheus container exposed for local observability work.
+- `grafana`: a Grafana container exposed for local dashboard work.
+
+The API service waits for PostgreSQL, runs `alembic upgrade head`, and then starts Uvicorn. The Dockerfile includes a `/healthz` container health check. These settings are only for local portfolio demos; production deployments need real secret management, TLS, hardened runtime policies, backups, and alerting.
+
+Run the stack with:
+
+```bash
+docker compose up --build
+```
+
 ## Role model
 
 Organisations are the tenant boundary. User-driven tenant-scoped business services must resolve the current authenticated principal, load the principal's organisation membership, and enforce role permissions before reading or mutating tenant-owned data. Project services additionally accept active organisation-scoped API keys and require the key's organisation to match the route tenant.
@@ -88,7 +105,7 @@ Primary metric families:
 - `saas_api_idempotency_replays_total`
 - `saas_api_idempotency_conflicts_total`
 
-Prometheus scrape configuration, Grafana dashboards, and container runtime wiring are intentionally deferred to later observability and Docker tickets.
+The local Compose stack now starts Prometheus and Grafana containers. Custom Prometheus scrape configuration, Grafana provisioning, and dashboards are intentionally deferred to the dedicated observability configuration ticket.
 
 ## Idempotency
 

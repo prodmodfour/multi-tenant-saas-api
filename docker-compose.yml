@@ -1,0 +1,73 @@
+# Local Docker Compose stack for portfolio/demo use only.
+# All credentials below are public-safe placeholders for local development.
+# Do not reuse them in production or commit real secrets in override files.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: saas_api
+      POSTGRES_USER: saas_api
+      POSTGRES_PASSWORD: local-placeholder-postgres-password
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U saas_api -d saas_api"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SAAS_API_APP_NAME: multi-tenant-saas-api
+      SAAS_API_APP_VERSION: "0.1.0"
+      SAAS_API_ENVIRONMENT: local
+      SAAS_API_LOG_LEVEL: INFO
+      SAAS_API_DOCS_ENABLED: "true"
+      SAAS_API_DATABASE_URL: postgresql+asyncpg://saas_api:local-placeholder-postgres-password@postgres:5432/saas_api
+      SAAS_API_JWT_SECRET: local-placeholder-jwt-secret-not-for-production
+      SAAS_API_JWT_ISSUER: multi-tenant-saas-api-local
+      SAAS_API_ACCESS_TOKEN_TTL_SECONDS: "900"
+      SAAS_API_PASSWORD_MIN_LENGTH: "12"
+    command:
+      - /bin/sh
+      - -c
+      - |
+        alembic upgrade head
+        exec uvicorn multi_tenant_saas_api.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    ports:
+      - "9090:9090"
+    volumes:
+      - prometheus_data:/prometheus
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: local-placeholder-grafana-password
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    depends_on:
+      - prometheus
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+volumes:
+  postgres_data:
+  prometheus_data:
+  grafana_data:

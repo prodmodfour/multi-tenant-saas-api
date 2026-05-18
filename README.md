@@ -66,14 +66,17 @@ The project currently includes the repository skeleton, FastAPI application shel
 - successful registration/login, organisation create/update, member add/update/remove, project create/update/delete, and API key create/revoke audit event writes through the append-only audit service with secret-safe metadata
 - idempotency support for `POST /orgs`, `POST /orgs/{org_id}/projects`, and `POST /orgs/{org_id}/api-keys`, scoped by principal, method, path, request body hash, and organisation where applicable
 - Prometheus metrics for HTTP requests, request duration, auth attempts, created organisations/projects/API keys, revoked API keys, audit events, and idempotency replay/conflict outcomes
+- Dockerfile with a non-root runtime user and container health check
+- Docker Compose stack for local API, PostgreSQL, Prometheus, and Grafana services
 - documentation and decisions directories
 
-Docker and CI are intentionally not implemented yet; they will be added by later build tickets. The RBAC services are wired into the organisation, membership, project, API key, audit, idempotency-aware, and metrics APIs and remain available for future tenant-scoped routes.
+CI is intentionally not implemented yet; it will be added by a later build ticket. Prometheus scrape configuration and Grafana dashboards are also deferred to the dedicated observability configuration ticket. The RBAC services are wired into the organisation, membership, project, API key, audit, idempotency-aware, and metrics APIs and remain available for future tenant-scoped routes.
 
 ## Requirements
 
 - Python 3.12
 - [`uv`](https://docs.astral.sh/uv/) for dependency management
+- Docker and Docker Compose for the optional local container stack
 
 ## Local setup
 
@@ -96,6 +99,36 @@ make lint
 make test
 make quality
 ```
+
+## Docker Compose quick start
+
+The local Compose stack uses public-safe placeholder configuration only. It starts the API, PostgreSQL, Prometheus, and Grafana for demo exploration:
+
+```bash
+docker compose up --build
+```
+
+The API container waits for PostgreSQL, runs `alembic upgrade head` for local demo convenience, and then starts Uvicorn. OpenAPI docs are enabled in the Compose environment for local exploration.
+
+Useful local URLs:
+
+- API: <http://localhost:8000>
+- API docs: <http://localhost:8000/docs>
+- Health: <http://localhost:8000/healthz>
+- Readiness: <http://localhost:8000/readyz>
+- Metrics: <http://localhost:8000/metrics>
+- Prometheus: <http://localhost:9090>
+- Grafana: <http://localhost:3000> (`admin` / `local-placeholder-grafana-password`)
+
+Shut down the stack with:
+
+```bash
+docker compose down
+```
+
+Add `--volumes` when you intentionally want to remove local PostgreSQL, Prometheus, and Grafana data volumes.
+
+These placeholders are not production secrets. Production deployments need managed secret storage, TLS, hardened authentication, backups, alerting, and reviewed container/runtime policies.
 
 ## Configuration
 
@@ -196,7 +229,7 @@ Implemented metric families:
 - `saas_api_idempotency_replays_total`
 - `saas_api_idempotency_conflicts_total`
 
-Prometheus scrape configuration, Grafana dashboards, and containerised observability are intentionally deferred to later Docker/observability tickets.
+The Docker Compose stack includes Prometheus and Grafana containers for local exploration. Custom Prometheus scrape configuration, Grafana provisioning, and dashboards are intentionally deferred to the dedicated observability configuration ticket.
 
 ## Role model and tenant access policy
 
@@ -227,7 +260,7 @@ The initial PostgreSQL schema is managed by Alembic:
 uv run alembic upgrade head
 ```
 
-A local PostgreSQL service is not included until the Docker Compose ticket, so the migration command and `/readyz` require a separately available database or a future Compose stack. If PostgreSQL is unreachable, `/readyz` returns a clear `503` not-ready response.
+The Docker Compose stack includes a local PostgreSQL service and runs migrations before starting the API container for demo convenience. Outside Compose, the migration command and `/readyz` require a separately available database. If PostgreSQL is unreachable, `/readyz` returns a clear `503` not-ready response.
 
 ## Documentation
 
