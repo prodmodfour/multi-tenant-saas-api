@@ -8,13 +8,14 @@ version = "0.1.0"
 description = "Public portfolio FastAPI backend for a production-style multi-tenant SaaS API."
 readme = "README.md"
 requires-python = ">=3.12,<4.0"
-license = { text = "MIT" }
+license = { text = "GPL-3.0-only" }
 authors = [{ name = "Portfolio Project Maintainer" }]
 keywords = ["fastapi", "saas", "multi-tenant", "portfolio", "backend"]
 classifiers = [
   "Development Status :: 2 - Pre-Alpha",
   "Framework :: FastAPI",
   "Intended Audience :: Developers",
+  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.12",
   "Typing :: Typed",

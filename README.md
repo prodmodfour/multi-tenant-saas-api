@@ -353,3 +353,7 @@ Architecture decision records:
 - Observability is local-demo oriented; production alerting, retention, authentication, and dashboard hardening are not included.
 - The smoke demo exercises the happy path; RBAC denial, tenant isolation, idempotency conflict, and secret-leakage cases live in pytest coverage.
 - Production deployment would require reviewed infrastructure, TLS, managed secrets, backups, rate limiting, and incident response processes.
+
+## License
+
+This project is licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE).
