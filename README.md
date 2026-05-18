@@ -1,3 +1,8 @@
+![CI](https://github.com/prodmodfour/multi-tenant-saas-api/actions/workflows/ci.yml/badge.svg)
+![Python](https://img.shields.io/badge/python-3.12-blue)
+![FastAPI](https://img.shields.io/badge/FastAPI-backend-green)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-multi--tenant-blue)
+![RBAC](https://img.shields.io/badge/RBAC-tenant%20isolation-purple)
 # Multi-Tenant SaaS API
 
 **Production-style FastAPI backend portfolio project for a multi-tenant SaaS API.**
