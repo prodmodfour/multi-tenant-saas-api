@@ -844,7 +844,7 @@ Commit when complete.
 
 ## 023 — Final README polish
 
-Status: TODO
+Status: DONE
 
 Polish README so the first screen clearly sells the portfolio value.
 

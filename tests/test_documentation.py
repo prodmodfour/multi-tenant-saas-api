@@ -95,3 +95,35 @@ def test_documentation_index_and_readme_link_to_topic_docs() -> None:
     for relative_path in REQUIRED_ADRS:
         assert f"docs/decisions/{relative_path}" in readme
         assert f"(decisions/{relative_path})" in docs_index
+
+
+def test_final_readme_polish_covers_ticket_requirements() -> None:
+    """The polished README should expose the requested reviewer-facing sections."""
+
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    required_fragments = (
+        "Production-style FastAPI backend portfolio project",
+        "## Suggested review path for hiring reviewers",
+        "## Public-safety constraints",
+        "## Security boundaries",
+        "## Implemented scope",
+        "## Out of scope",
+        "## Requirements",
+        "## Quick start",
+        "## Configuration",
+        "## API surface",
+        "## Auth and RBAC summary",
+        "## API key summary",
+        "## Audit and idempotency summary",
+        "## Observability",
+        "## Testing and quality gates",
+        "## Architecture links",
+        "## Limitations",
+        "scripts/smoke-demo.sh",
+        "POST /orgs/{organisation_id}/api-keys",
+        "Idempotency-Replayed: true",
+        "routes -> schemas -> services -> repositories -> database",
+    )
+
+    for fragment in required_fragments:
+        assert fragment in readme, fragment

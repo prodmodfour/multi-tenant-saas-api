@@ -1,87 +1,82 @@
 # Multi-Tenant SaaS API
 
-`multi-tenant-saas-api` is an independent public portfolio project that will grow into a production-style FastAPI backend for a multi-tenant SaaS product.
+**Production-style FastAPI backend portfolio project for a multi-tenant SaaS API.**
 
-The project is intentionally generic and public-safe. It is not based on employer code, private systems, internal URLs, credentials, screenshots, or non-public architecture.
+This repository is an independent public portfolio project. It is designed to show practical
+backend/platform engineering judgement: tenant isolation, RBAC, PostgreSQL persistence,
+Alembic migrations, secure credential handling patterns, audit logging, idempotency,
+observability, Docker Compose local infrastructure, CI, tests, runbooks, and ADRs.
 
-## Portfolio goals
+## Suggested review path for hiring reviewers
 
-This repository is designed to demonstrate commercial backend/platform engineering skills, including:
+If you have limited time, review in this order:
 
-- FastAPI API design
-- PostgreSQL persistence and migrations
-- multi-tenant data modelling and tenant isolation
-- authentication and role-based access control
-- organisation membership management
-- hashed password and API key storage
-- audit logging and idempotency keys
-- pagination, filtering, and sorting
-- structured JSON logging and request ID propagation
-- health/readiness checks and Prometheus metrics
-- Docker Compose local infrastructure
-- GitHub Actions CI, tests, documentation, runbooks, and ADRs
+1. Start with this README for scope, boundaries, quick start, and the API surface.
+2. Skim [docs/architecture.md](docs/architecture.md) for the layer boundaries and tenant model.
+3. Skim [docs/security.md](docs/security.md) for auth, API key, audit, and production-hardening notes.
+4. Run `scripts/quality-gate.sh` to see linting, type checks, tests, Docker Compose validation, and guardrails.
+5. Run the local stack plus `scripts/smoke-demo.sh` to exercise a safe end-to-end demo.
+6. Inspect representative tests such as `tests/test_projects_api.py`, `tests/test_api_keys_api.py`,
+   `tests/test_idempotency_api.py`, and `tests/test_guardrails.py`.
 
-## Security and public-safety boundaries
+## Public-safety constraints
+
+This project is intentionally generic and public-safe:
+
+- No employer code, private data, internal hostnames, credentials, screenshots, or non-public architecture.
+- Demo users, configuration values, Grafana credentials, JWT settings, and database passwords are local placeholders only.
+- The repository should not imply employer endorsement or contain organisation-specific implementation details.
+- If you add local private terms for scanning, keep them outside git and point
+  `SAAS_API_FORBIDDEN_TERMS_FILE` at that untracked file.
+
+## Security boundaries
 
 This is a portfolio implementation, not a production identity or security baseline.
+It models good hygiene while remaining intentionally small enough to review:
 
-- Do not commit real secrets, credentials, private data, or employer-specific material.
-- Use only local placeholder values in examples and local development files.
-- Production deployments would require real secret management, TLS, hardened authentication, alerting, backups, and operational review.
-- Password hashing utilities store only derived hashes; API key workflows store only key hashes plus non-secret identification prefixes.
-- Raw API key material is returned only by the intentional one-time create response.
+- Passwords are hashed before persistence; password hashes are never returned by API responses.
+- API keys are stored as deterministic hashes plus non-secret prefixes; raw API key material is returned only by the intentional one-time create response.
+- Bearer tokens, raw API keys, passwords, password hashes, and key hashes must not be logged or stored in audit metadata.
+- OpenAPI docs are disabled by default and enabled only when `SAAS_API_DOCS_ENABLED=true`.
+- Production deployments would need managed secrets, TLS, hardened identity, token/key rotation, alerting, backups, rate limiting, and operational review.
 
-## Current status
+## Implemented scope
 
-The project currently includes the repository skeleton, FastAPI application shell, persistence layer contracts, and the first tenant-scoped API workflows:
+| Area | Implemented |
+| --- | --- |
+| API framework | FastAPI app factory, route modules, Pydantic request/response schemas, docs toggle. |
+| Persistence | Async SQLAlchemy, PostgreSQL models, repository layer, Alembic initial migration. |
+| Tenancy | Organisations as tenant roots, organisation memberships, tenant-scoped repositories and service checks. |
+| Auth | Local demo email/password registration, login, short-lived bearer access tokens, `GET /me`. |
+| RBAC | `owner`, `admin`, `member`, and `viewer` roles with last-owner protection. |
+| Projects | Tenant-scoped create/read/update/soft-delete with pagination, filtering, and sorting. |
+| API keys | Organisation-scoped API key management and API key authentication for project endpoints. |
+| Audit | Append-only audit service and tenant-scoped audit log API. |
+| Idempotency | Optional `Idempotency-Key` support for selected unsafe creation endpoints. |
+| Observability | Structured JSON logging, `X-Request-ID`, health/readiness, Prometheus metrics, local Grafana dashboard. |
+| Automation | Quality gate, public-safety/architecture/secret-response guardrails, GitHub Actions CI. |
+| Local demo | Dockerfile, Docker Compose stack, Prometheus/Grafana config, and `scripts/smoke-demo.sh`. |
+| Documentation | Architecture, security, API walkthrough, operations, runbook, and ADRs. |
 
-- Python 3.12 package using a `src/` layout
-- Hatchling build backend
-- Ruff, mypy strict mode, pytest, and pytest-cov configuration
-- quality gate script with public-safety, architecture-boundary, and secret-response guardrails
-- GitHub Actions CI workflow for dependency sync, guardrails, linting, formatting, type checks, migrations, tests, and Docker Compose validation
-- FastAPI app factory at `multi_tenant_saas_api.app:create_app`
-- environment-backed settings using the `SAAS_API_` prefix
-- structured JSON logging with request ID context
-- `X-Request-ID` propagation
-- `GET /healthz` liveness endpoint
-- `GET /readyz` readiness endpoint with a PostgreSQL `SELECT 1` dependency check
-- `GET /metrics` Prometheus text exposition endpoint
-- domain identifiers, organisation roles, permission mapping, project statuses, and audit actions
-- Pydantic request/response schemas for the planned auth, organisation, membership, project, API key, audit, and pagination contracts
-- async SQLAlchemy engine/session helpers
-- SQLAlchemy models for users, organisations, memberships, projects, API keys, audit events, and idempotency records
-- Alembic configuration and an initial PostgreSQL migration
-- repository classes for users, organisations, memberships, projects, API keys, audit events, and idempotency records
-- tenant-scoped repository methods for organisation membership lists, project access, API key management, audit event reads, and idempotency lookups
-- RBAC and tenant-context services for current-principal resolution, membership lookup, permission checks, and last-owner protection
-- password policy checks plus Argon2id password hashing and verification utilities
-- signed bearer access token creation/validation utilities and a typed authenticated principal model
-- request-scoped database session dependency wiring for API workflows
-- auth service workflows and routes for registration, login, and current-user lookup
-- organisation service workflows and routes for tenant creation, membership-scoped listing, detail reads, and owner/admin metadata updates
-- membership management service workflows and routes for owner/admin member listing, member add, role update, removal, admin owner-operation restrictions, and last-owner protection
-- project service workflows and routes for tenant-scoped create/read/update/soft-delete operations, pagination, status/name filtering, created_at/name/status sorting, viewer read-only user access, and organisation-scoped API key access
-- API key management workflows and routes for owner/admin key creation, metadata listing, revocation, hashed storage, one-time raw key creation responses, and revoked-key authentication denial
-- `POST /auth/register`, `POST /auth/login`, `GET /me`, `POST /orgs`, `GET /orgs`, `GET /orgs/{org_id}`, `PATCH /orgs/{org_id}`, `GET /orgs/{org_id}/members`, `POST /orgs/{org_id}/members`, `PATCH /orgs/{org_id}/members/{user_id}`, `DELETE /orgs/{org_id}/members/{user_id}`, `POST /orgs/{org_id}/projects`, `GET /orgs/{org_id}/projects`, `GET /orgs/{org_id}/projects/{project_id}`, `PATCH /orgs/{org_id}/projects/{project_id}`, `DELETE /orgs/{org_id}/projects/{project_id}`, `POST /orgs/{org_id}/api-keys`, `GET /orgs/{org_id}/api-keys`, `DELETE /orgs/{org_id}/api-keys/{api_key_id}`, and `GET /orgs/{org_id}/audit-events`
-- successful registration/login, organisation create/update, member add/update/remove, project create/update/delete, and API key create/revoke audit event writes through the append-only audit service with secret-safe metadata
-- idempotency support for `POST /orgs`, `POST /orgs/{org_id}/projects`, and `POST /orgs/{org_id}/api-keys`, scoped by principal, method, path, request body hash, and organisation where applicable
-- Prometheus metrics for HTTP requests, request duration, auth attempts, created organisations/projects/API keys, revoked API keys, audit events, and idempotency replay/conflict outcomes
-- Dockerfile with a non-root runtime user and container health check
-- Docker Compose stack for local API, PostgreSQL, Prometheus, and Grafana services
-- local Prometheus scrape configuration for the API metrics endpoint
-- Grafana provisioning for the Prometheus datasource and a basic SaaS API overview dashboard
-- documentation and decisions directories
+## Out of scope
 
-GitHub Actions CI is implemented in `.github/workflows/ci.yml`. It runs shell syntax checks, automation guardrails, `uv sync --locked --all-groups`, Ruff, mypy, Docker Compose config validation, Alembic migration upgrade against a PostgreSQL service container, and pytest with coverage. The RBAC services are wired into the organisation, membership, project, API key, audit, idempotency-aware, and metrics APIs and remain available for future tenant-scoped routes.
+The project deliberately does not implement:
+
+- OAuth, SSO, MFA, email verification, password reset emails, refresh-token rotation, or full identity-provider workflows.
+- Billing, subscriptions, webhooks, background job processing, or multi-region deployment automation.
+- Fine-grained API key scopes beyond project endpoint access.
+- Production secret management, TLS termination, rate limiting, alert rules, backups, or disaster recovery automation.
+- Arbitrary command execution, subprocess execution from user input, user-supplied plugin execution, or hidden bypass users.
 
 ## Requirements
 
 - Python 3.12
 - [`uv`](https://docs.astral.sh/uv/) for dependency management
-- Docker and Docker Compose for the optional local container stack
+- Docker and Docker Compose for the optional local API/PostgreSQL/Prometheus/Grafana stack
 
-## Local setup
+## Quick start
+
+Install dependencies and run the test suite:
 
 ```bash
 uv sync --all-groups
@@ -94,10 +89,6 @@ Run the full local quality gate:
 scripts/quality-gate.sh
 ```
 
-The quality gate includes automation guardrails for public-safety/private-term scanning, route-layer architecture boundaries, and secret-looking response schema fields. Locally supplied private or employer terms can be checked without committing them by setting `SAAS_API_FORBIDDEN_TERMS_FILE` to a newline-delimited local file before running the gate.
-
-The GitHub Actions CI workflow mirrors these checks and also runs `alembic upgrade head` against a PostgreSQL service container.
-
 Common shortcuts are available through `make`:
 
 ```bash
@@ -107,17 +98,13 @@ make test
 make quality
 ```
 
-## Docker Compose quick start
-
-The local Compose stack uses public-safe placeholder configuration only. It starts the API, PostgreSQL, Prometheus, and Grafana for demo exploration:
+Start the local demo stack:
 
 ```bash
 docker compose up --build
 ```
 
-The API container waits for PostgreSQL, runs `alembic upgrade head` for local demo convenience, and then starts Uvicorn. OpenAPI docs are enabled in the Compose environment for local exploration.
-
-Useful local URLs:
+Useful local URLs when Compose is running:
 
 - API: <http://localhost:8000>
 - API docs: <http://localhost:8000/docs>
@@ -125,17 +112,25 @@ Useful local URLs:
 - Readiness: <http://localhost:8000/readyz>
 - Metrics: <http://localhost:8000/metrics>
 - Prometheus: <http://localhost:9090>
-- Prometheus API target status: <http://localhost:9090/targets>
 - Grafana: <http://localhost:3000> (`admin` / `local-placeholder-grafana-password`)
-- Grafana dashboard: browse to **Dashboards** → **Portfolio SaaS API** → **Multi-Tenant SaaS API Overview**
 
-Run the scripted smoke demo after the API is ready:
+After `/readyz` reports ready, run the safe smoke demo:
 
 ```bash
 scripts/smoke-demo.sh
 ```
 
-The smoke demo registers placeholder `example.com` users, creates an organisation and project, adds a member, creates and revokes an API key, reads audit events, and checks metrics. It captures bearer tokens and the one-time API key response in memory only and does not print them. Override the target API with `SAAS_API_DEMO_BASE_URL` or set `SAAS_API_DEMO_RUN_ID` to choose a repeatable slug-safe demo run ID.
+The smoke demo registers placeholder `example.com` users, logs in, creates an organisation,
+adds a member, creates/lists/updates a project, creates and uses an API key on a project
+endpoint, revokes the API key, reads audit events, and checks metrics. It captures bearer
+tokens and the one-time API key response in memory only and does not print them.
+
+Optional smoke-demo overrides:
+
+```bash
+SAAS_API_DEMO_BASE_URL=http://localhost:8000 scripts/smoke-demo.sh
+SAAS_API_DEMO_RUN_ID=example-review scripts/smoke-demo.sh
+```
 
 Shut down the stack with:
 
@@ -143,95 +138,132 @@ Shut down the stack with:
 docker compose down
 ```
 
-Add `--volumes` when you intentionally want to remove local PostgreSQL, Prometheus, and Grafana data volumes.
-
-These placeholders are not production secrets. Production deployments need managed secret storage, TLS, hardened authentication, backups, alerting, and reviewed container/runtime policies.
+Add `--volumes` only when you intentionally want to delete local PostgreSQL, Prometheus,
+and Grafana data volumes.
 
 ## Configuration
 
-Configuration uses environment variables prefixed with `SAAS_API_`. See `example.env` for public-safe local placeholders.
+Configuration uses environment variables prefixed with `SAAS_API_`. See `example.env` for
+public-safe local placeholders.
 
 | Variable | Default | Description |
 | --- | --- | --- |
 | `SAAS_API_APP_NAME` | `multi-tenant-saas-api` | Application name used in FastAPI metadata and health responses. |
 | `SAAS_API_APP_VERSION` | `0.1.0` | Application version used in FastAPI metadata and health responses. |
-| `SAAS_API_ENVIRONMENT` | `local` | Environment label included in health responses and future logs/metrics. |
-| `SAAS_API_LOG_LEVEL` | `INFO` | Structured JSON logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`). |
+| `SAAS_API_ENVIRONMENT` | `local` | Environment label included in health responses and logs. |
+| `SAAS_API_LOG_LEVEL` | `INFO` | Structured JSON logging level. |
 | `SAAS_API_DOCS_ENABLED` | `false` | Enables `/docs`, `/redoc`, and `/openapi.json` for local exploration when set to `true`. |
-| `SAAS_API_DATABASE_URL` | `postgresql+asyncpg://saas_api:saas_api@localhost:5432/saas_api` | Async SQLAlchemy PostgreSQL URL used by the application and Alembic migrations. The default is a local placeholder only. |
-| `SAAS_API_JWT_SECRET` | `local-placeholder-jwt-secret-not-for-production` | Local placeholder signing secret for demo bearer access tokens. Production systems require managed secrets and rotation. |
+| `SAAS_API_DATABASE_URL` | `postgresql+asyncpg://saas_api:saas_api@localhost:5432/saas_api` | Async SQLAlchemy PostgreSQL URL. The default is a local placeholder only. |
+| `SAAS_API_JWT_SECRET` | `local-placeholder-jwt-secret-not-for-production` | Local placeholder signing secret for demo bearer tokens. Production requires managed secrets and rotation. |
 | `SAAS_API_JWT_ISSUER` | `multi-tenant-saas-api-local` | Issuer claim used when creating and validating bearer access tokens. |
 | `SAAS_API_ACCESS_TOKEN_TTL_SECONDS` | `900` | Lifetime for local demo bearer access tokens. |
-| `SAAS_API_PASSWORD_MIN_LENGTH` | `12` | Minimum password length enforced by the password policy utility before hashing. |
-
-OpenAPI documentation is disabled by default to model a safer production posture. Enable it only for local exploration or explicitly configured demo environments.
+| `SAAS_API_PASSWORD_MIN_LENGTH` | `12` | Minimum password length enforced before password hashing. |
 
 Do not copy real credentials into committed files. If you create a local `.env`, keep it untracked.
 
-## Implemented API surface
+## API surface
 
 System endpoints:
 
-- `GET /healthz` — liveness check with application metadata; it does not touch external dependencies.
-- `GET /readyz` — readiness check that executes a minimal PostgreSQL round trip. It returns `200` with `status: "ready"` when the database check succeeds and `503` with `status: "not_ready"` when PostgreSQL is unavailable. The failure response identifies the `postgresql` dependency without exposing database URLs, credentials, or driver exception details.
-- `GET /metrics` — Prometheus text exposition for app-local metrics. The endpoint does not require authentication so local Prometheus can scrape it.
+- `GET /healthz`
+- `GET /readyz`
+- `GET /metrics`
 
 Auth endpoints:
 
-- `POST /auth/register` — creates a local demo user, stores only an Argon2id-derived password hash, rejects duplicate email addresses, and returns public user fields.
-- `POST /auth/login` — validates local email/password credentials and returns a short-lived bearer access token with generic failure behaviour for unknown email or wrong password.
-- `GET /me` — requires `Authorization: Bearer <token>` and returns the current active user plus organisation membership summaries.
-
-Password hashes and raw passwords are never returned by these endpoints. Registration and successful login create nullable-organisation audit events with empty, secret-safe metadata.
+- `POST /auth/register`
+- `POST /auth/login`
+- `GET /me`
 
 Organisation endpoints:
 
-- `POST /orgs` — requires a bearer token, creates an organisation, derives a slug from the name when one is not supplied, enforces unique slugs, makes the creator an `owner`, records a secret-safe audit event, and supports `Idempotency-Key` replay/conflict handling scoped to the user principal.
-- `GET /orgs` — requires a bearer token and returns only organisations where the current user has a membership, with `limit`/`offset` pagination metadata.
-- `GET /orgs/{org_id}` — requires tenant membership and `read_organisation` permission.
-- `PATCH /orgs/{org_id}` — requires tenant membership and `update_organisation` permission, so `owner` and `admin` members may update metadata while `member` and `viewer` roles are denied.
-
-Organisation names are not globally unique; duplicate names are allowed when slugs differ. Organisation slugs are globally unique tenant identifiers.
+- `POST /orgs`
+- `GET /orgs`
+- `GET /orgs/{organisation_id}`
+- `PATCH /orgs/{organisation_id}`
 
 Membership endpoints:
 
-- `GET /orgs/{org_id}/members` — requires tenant membership and `manage_members` permission, returning paginated public member data without password hashes.
-- `POST /orgs/{org_id}/members` — requires `manage_members`, adds an existing user to the organisation, rejects duplicate memberships, prevents admins from granting `owner`, and records a `member.added` audit event.
-- `PATCH /orgs/{org_id}/members/{user_id}` — requires `manage_members`, changes a member role, prevents admins from changing owner memberships or granting `owner`, protects the final owner from downgrade, and records a `member.role_changed` audit event.
-- `DELETE /orgs/{org_id}/members/{user_id}` — requires `manage_members`, prevents admins from removing owners, protects the final owner from removal, and records a `member.removed` audit event.
+- `GET /orgs/{organisation_id}/members`
+- `POST /orgs/{organisation_id}/members`
+- `PATCH /orgs/{organisation_id}/members/{user_id}`
+- `DELETE /orgs/{organisation_id}/members/{user_id}`
 
 Project endpoints:
 
-- `POST /orgs/{org_id}/projects` — requires tenant membership and `write_projects` for user access, so `owner`, `admin`, and `member` roles can create projects while `viewer` is denied. Active API keys for the same organisation can also create projects. `Idempotency-Key` replay/conflict handling is scoped to the principal, route organisation, method, path, and body hash.
-- `GET /orgs/{org_id}/projects` — requires `read_projects` for user access or an active API key for the same organisation. It returns non-deleted projects scoped to that organisation only and supports `limit`, `offset`, optional `status`, optional case-insensitive `name` search, `sort_by` (`created_at`, `name`, or `status`), and `sort_direction` (`asc` or `desc`).
-- `GET /orgs/{org_id}/projects/{project_id}` — requires project read access and enforces both organisation ID and project ID in the repository lookup, so project IDs from other organisations return a safe not-found response.
-- `PATCH /orgs/{org_id}/projects/{project_id}` — requires project write access, updates supplied project fields, supports clearing `description` with `null`, and records a `project.updated` audit event.
-- `DELETE /orgs/{org_id}/projects/{project_id}` — requires project write access, soft-deletes the project, excludes it from future default reads/lists, and records a `project.deleted` audit event.
+- `POST /orgs/{organisation_id}/projects`
+- `GET /orgs/{organisation_id}/projects?limit=50&offset=0&status=active&name=demo&sort_by=created_at&sort_direction=desc`
+- `GET /orgs/{organisation_id}/projects/{project_id}`
+- `PATCH /orgs/{organisation_id}/projects/{project_id}`
+- `DELETE /orgs/{organisation_id}/projects/{project_id}`
 
 API key endpoints:
 
-- `POST /orgs/{org_id}/api-keys` — requires tenant membership and `manage_api_keys`, so only `owner` and `admin` members can create API keys. The initial response returns `raw_key` exactly once and persists only `key_hash` plus `key_prefix` metadata. Idempotent replays return stored key metadata plus a replay note and do not return or store raw key material.
-- `GET /orgs/{org_id}/api-keys` — requires `manage_api_keys` and returns paginated metadata only; it never returns raw keys or key hashes.
-- `DELETE /orgs/{org_id}/api-keys/{api_key_id}` — requires `manage_api_keys`, revokes the key, and records a secret-safe `api_key.revoked` audit event.
+- `POST /orgs/{organisation_id}/api-keys`
+- `GET /orgs/{organisation_id}/api-keys`
+- `DELETE /orgs/{organisation_id}/api-keys/{api_key_id}`
 
-API keys authenticate with `Authorization: Bearer <raw_key>` on project endpoints only. They are scoped to one organisation, cannot access another tenant's projects, cannot manage members, and cannot create/list/revoke API keys. Revoked keys cannot authenticate.
+Audit endpoint:
 
-Audit endpoints:
+- `GET /orgs/{organisation_id}/audit-events`
 
-- `GET /orgs/{org_id}/audit-events` — requires tenant membership and `read_audit_events`, so only `owner` and `admin` members can read paginated audit logs. `member`, `viewer`, non-member, and cross-tenant requests are denied before audit rows are listed.
+## Auth and RBAC summary
 
-Audit events are append-only at the API/service layer. Metadata is intentionally small and secret-safe; the audit service rejects obvious secret-bearing metadata field names such as raw keys, key hashes, passwords, bearer tokens, and authorization values.
+Local demo authentication supports email/password registration and login. Registration stores
+only an Argon2id-derived password hash. Login returns a short-lived bearer access token for
+user endpoints. `GET /me` returns the current public user plus organisation memberships.
 
-Idempotency:
+Organisations are the tenant boundary. User-driven business workflows resolve the current
+principal, load the user's membership for the target organisation, and check permissions before
+reading or mutating tenant-owned data.
 
-- `POST /orgs`, `POST /orgs/{org_id}/projects`, and `POST /orgs/{org_id}/api-keys` accept an optional `Idempotency-Key` header.
-- Reusing the same key with the same principal, method, path, organisation scope, and request body hash returns the stored response with `Idempotency-Replayed: true`.
-- Reusing the same key with a different request body returns `409 Conflict` without exposing body hashes.
-- API key creation replay intentionally omits `raw_key`; raw API key material is returned only by the initial create response and is never persisted in idempotency snapshots.
+| Role | Summary |
+| --- | --- |
+| `owner` | Manage organisation, members, API keys, projects, and audit events. |
+| `admin` | Manage metadata, non-owner members, API keys, projects, and audit events; cannot grant/change/remove owners. |
+| `member` | Read organisation metadata and read/write projects. |
+| `viewer` | Read organisation metadata and projects only. |
+
+Every organisation must retain at least one owner. Last-owner removal and downgrade attempts
+are rejected. Cross-tenant access is denied before tenant-owned rows are listed or mutated.
+
+## API key summary
+
+Owner/admin users can create, list, and revoke organisation API keys. The create response
+returns `raw_key` exactly once; later list/revoke responses expose metadata only. The database
+persists only key hashes and short non-secret prefixes for identification.
+
+API keys authenticate with `Authorization: Bearer <raw-api-key>` on project endpoints only.
+They are scoped to exactly one organisation, cannot access other tenants, cannot manage
+members, cannot read audit logs, and cannot create/list/revoke other API keys. Revoked keys
+are denied during authentication.
+
+## Audit and idempotency summary
+
+Core business workflows create append-only audit events for registration/login, organisation
+create/update, member add/update/remove, project create/update/delete, and API key create/revoke.
+Audit metadata is intentionally small and rejects obvious secret-bearing field names.
+Only owner/admin members can read tenant-scoped audit events.
+
+Optional `Idempotency-Key` support is implemented for:
+
+- `POST /orgs`
+- `POST /orgs/{organisation_id}/projects`
+- `POST /orgs/{organisation_id}/api-keys`
+
+A replay with the same principal, method, path, organisation scope, idempotency key, and body
+hash returns the stored response with `Idempotency-Replayed: true`. Reusing the key with a
+different request body returns `409 Conflict` without exposing request hashes. API key creation
+replays intentionally omit raw API key material.
 
 ## Observability
 
-The app exposes Prometheus metrics at `GET /metrics` using an app-local registry. Request metrics use low-cardinality route templates such as `/orgs/{organisation_id}/projects` instead of raw tenant IDs.
+The API provides:
+
+- Structured JSON logs with request-scoped `X-Request-ID` propagation.
+- `GET /healthz` for liveness without dependency checks.
+- `GET /readyz` for PostgreSQL readiness through a minimal `SELECT 1` check.
+- `GET /metrics` for Prometheus text exposition using low-cardinality route-template labels.
 
 Implemented metric families:
 
@@ -246,52 +278,52 @@ Implemented metric families:
 - `saas_api_idempotency_replays_total`
 - `saas_api_idempotency_conflicts_total`
 
-The Docker Compose stack includes Prometheus and Grafana containers for local exploration. Prometheus uses `observability/prometheus/prometheus.yml` to scrape the API container at `api:8000/metrics` every 15 seconds. Grafana uses provisioning files under `observability/grafana/provisioning/` to create a Prometheus datasource and load the `observability/grafana/dashboards/saas-api-overview.json` dashboard.
+The Docker Compose stack includes Prometheus and Grafana with repository-owned provisioning:
 
-Local observability URLs when Compose is running:
+- Prometheus config: `observability/prometheus/prometheus.yml`
+- Grafana datasource provisioning: `observability/grafana/provisioning/datasources/prometheus.yml`
+- Grafana dashboard provisioning: `observability/grafana/provisioning/dashboards/dashboards.yml`
+- Grafana dashboard JSON: `observability/grafana/dashboards/saas-api-overview.json`
 
-- API metrics: <http://localhost:8000/metrics>
-- Prometheus UI: <http://localhost:9090>
-- Prometheus target health: <http://localhost:9090/targets>
-- Grafana UI: <http://localhost:3000> (`admin` / `local-placeholder-grafana-password`)
-- Grafana dashboard: **Dashboards** → **Portfolio SaaS API** → **Multi-Tenant SaaS API Overview**
+## Testing and quality gates
 
-These observability settings are local demo defaults only. Production deployments need authenticated dashboards, managed secrets, alerting rules, retention planning, and reviewed scrape topology.
+The repository uses Ruff, mypy strict mode, pytest, pytest-cov, shell syntax checks, Docker
+Compose config validation, Alembic migration checks in CI, and custom automation guardrails.
 
-## Role model and tenant access policy
-
-Organisations are the tenant boundary. User-driven business workflows must resolve a current authenticated principal, load the user's membership for the target organisation, and enforce permissions before accessing tenant-owned data. Project workflows also accept active organisation-scoped API keys and require the key's organisation to match the route tenant.
-
-| Role | Permissions |
-| --- | --- |
-| `owner` | Manage organisation, manage members, manage API keys, read/write projects, read audit events. |
-| `admin` | Update organisation metadata, manage non-owner members, manage API keys, read/write projects, read audit events; cannot grant, change, or remove `owner` memberships. |
-| `member` | Read organisation metadata and read/write projects. |
-| `viewer` | Read organisation metadata and read projects only. |
-
-The RBAC service resolves bearer tokens into secret-safe current user principals, builds tenant contexts from organisation memberships, raises explicit not-found/access-denied/permission-denied errors, and protects the invariant that an organisation must always have at least one owner. The organisation, membership, project, and API key APIs use service-layer checks for tenant-scoped reads and mutations; future tenant-scoped routes must do the same instead of performing permission checks in route handlers.
-
-## Domain, schema, and persistence contracts
-
-The current domain layer defines organisation roles (`owner`, `admin`, `member`, `viewer`), service-level permissions, project statuses, project sort options, and audit action names. The Pydantic schemas define the API data contracts, while service workflows own registration, login, current-user business logic, organisation tenant workflows, membership management, project workflows, API key workflows, append-only audit workflows, and RBAC/tenant-context checks for implemented or upcoming protected endpoints.
-
-Password fields use secret-safe request types, response schemas do not include password hashes, and API key metadata schemas do not include raw keys or key hashes. The password utility enforces a configurable local policy and hashes new passwords with pwdlib's recommended Argon2id hasher before persistence. The bearer-token utility signs short-lived local demo access tokens and validates them into an authenticated user principal for `GET /me`. The API key utility generates high-entropy random keys, stores a deterministic SHA-256 hash plus a short prefix, and resolves active keys for project endpoints only. Production systems need real secret management, TLS, token/key rotation, monitoring, and hardened identity review.
-
-The database model stores `password_hash` and `key_hash` fields only; raw API key material is represented only by the intentional one-time API key creation response schema and is not replayed by list, revoke, or idempotency replay responses. API key creation idempotency snapshots store only metadata and a replay note.
-
-Repository classes live under `multi_tenant_saas_api.repositories` and own SQLAlchemy statement construction for business persistence operations. Service and route layers should call these repositories rather than querying ORM models directly. Repository methods that access tenant-owned business data require an organisation scope or a user-membership scope where applicable; RBAC decisions are handled by service-layer tenant contexts.
-
-The initial PostgreSQL schema is managed by Alembic:
+Run everything locally with:
 
 ```bash
-uv run alembic upgrade head
+scripts/quality-gate.sh
 ```
 
-The Docker Compose stack includes a local PostgreSQL service and runs migrations before starting the API container for demo convenience. Outside Compose, the migration command and `/readyz` require a separately available database. If PostgreSQL is unreachable, `/readyz` returns a clear `503` not-ready response.
+The gate runs:
 
-## Documentation
+- shell syntax checks for scripts
+- `uv sync --locked --all-groups` when `uv.lock` is present
+- Ruff lint and format checks
+- mypy over `src` and `tests`
+- pytest with coverage
+- Docker Compose config validation
+- public-safety/private-term scanning
+- route-layer architecture-boundary scanning
+- response-schema secret-leakage scanning
 
-Detailed documentation is available under `docs/`:
+GitHub Actions CI is defined in `.github/workflows/ci.yml` and mirrors the quality gate while
+also running Alembic migrations against a PostgreSQL service container.
+
+## Architecture links
+
+The implementation follows the project layer rule:
+
+```text
+routes -> schemas -> services -> repositories -> database
+```
+
+Routes are thin HTTP adapters. Schemas validate API input/output. Services own business
+workflows, RBAC, tenant checks, idempotency integration, and audit integration. Repositories
+own SQLAlchemy access. Route functions must not issue SQLAlchemy queries or hash credentials.
+
+Detailed documentation:
 
 - [Architecture](docs/architecture.md)
 - [Security model](docs/security.md)
@@ -306,3 +338,13 @@ Architecture decision records:
 - [0003 — Hashed passwords and API keys](docs/decisions/0003-hashed-passwords-and-api-keys.md)
 - [0004 — Idempotency records](docs/decisions/0004-idempotency-records.md)
 - [0005 — Append-only audit events](docs/decisions/0005-append-only-audit-events.md)
+
+## Limitations
+
+- Local authentication is intentionally simple and is not a hardened identity platform.
+- JWT and database values in `example.env` and `docker-compose.yml` are public-safe local placeholders only.
+- API key access is coarse-grained to project endpoints rather than per-action scopes.
+- Idempotency cleanup and high-concurrency duplicate-key hardening are intentionally minimal for portfolio scope.
+- Observability is local-demo oriented; production alerting, retention, authentication, and dashboard hardening are not included.
+- The smoke demo exercises the happy path; RBAC denial, tenant isolation, idempotency conflict, and secret-leakage cases live in pytest coverage.
+- Production deployment would require reviewed infrastructure, TLS, managed secrets, backups, rate limiting, and incident response processes.

@@ -2,7 +2,7 @@
 
 ## Current state
 
-Tickets 000 through 022 are complete. The repository has a Python 3.12 `src/` layout, FastAPI app shell, environment-backed settings, structured JSON logging, request ID propagation, health/readiness/metrics endpoints, async SQLAlchemy persistence, Alembic migrations, repository layer, local demo auth, RBAC/tenant context, organisation APIs, membership management, tenant-scoped project APIs, organisation API key management, API key project authentication, an audit log API, idempotency support for selected unsafe creation endpoints, Prometheus metrics instrumentation, a local Docker Compose stack, local Prometheus/Grafana observability configuration, a safe local smoke/demo script, GitHub Actions CI, dedicated architecture/security/API/operations/runbook documentation, and architecture decision records.
+Tickets 000 through 023 are complete. The repository has a Python 3.12 `src/` layout, FastAPI app shell, environment-backed settings, structured JSON logging, request ID propagation, health/readiness/metrics endpoints, async SQLAlchemy persistence, Alembic migrations, repository layer, local demo auth, RBAC/tenant context, organisation APIs, membership management, tenant-scoped project APIs, organisation API key management, API key project authentication, an audit log API, idempotency support for selected unsafe creation endpoints, Prometheus metrics instrumentation, a local Docker Compose stack, local Prometheus/Grafana observability configuration, a safe local smoke/demo script, GitHub Actions CI, dedicated architecture/security/API/operations/runbook documentation, architecture decision records, and a polished reviewer-facing README.
 
 Implemented application behaviour currently includes:
 
@@ -89,7 +89,7 @@ Ran `scripts/quality-gate.sh` successfully. The gate completed:
 - Ruff check
 - Ruff format check
 - mypy strict checks for `src` and `tests`
-- pytest with coverage (`129 passed`)
+- pytest with coverage (`130 passed`)
 - Docker Compose config validation
 - public-safety, architecture-boundary, and secret-leakage guardrails
 
@@ -111,29 +111,27 @@ The committed `example.env` and `docker-compose.yml` use local placeholder value
 
 ## Latest cycle notes
 
-Implemented Ticket 022:
+Implemented Ticket 023:
 
-- added executable `scripts/smoke-demo.sh` for a public-safe local Docker Compose API demo
-- the script waits for `/readyz`, registers placeholder owner/member users, logs in, creates an organisation, adds the member, creates a project, lists projects with pagination/filtering/sorting, updates the project, creates an API key, uses the key on a permitted project endpoint, revokes the key, prints secret-safe audit event summaries, and checks key Prometheus metric families
-- the script uses `example.com` users and generated local placeholder passwords, captures bearer tokens and one-time raw API key material only for the local run, redacts unexpected error bodies, avoids `set -x`, does not print demo passwords/tokens/raw API keys, and unsets the raw API key variable after revocation
-- documented the smoke demo in the README, API walkthrough, docs index, and operations guide, including optional `SAAS_API_DEMO_BASE_URL` and `SAAS_API_DEMO_RUN_ID` overrides
-- added static smoke-demo tests that verify script executability/syntax, required workflow coverage, public-safe handling notes, and reviewer-facing documentation links
+- rewrote the README opening so the first screen clearly frames the project as a production-style FastAPI backend portfolio piece
+- added a suggested review path for hiring reviewers, including docs, quality gate, smoke demo, and representative tests
+- reorganised README sections around public-safety constraints, security boundaries, implemented scope, out-of-scope items, requirements, quick start, configuration, API surface, auth/RBAC, API keys, audit/idempotency, observability, testing/quality gates, architecture links, and limitations
+- preserved public-safe placeholder guidance and documented that raw API key material is returned only in the intentional one-time create response
+- added a README documentation test that asserts the final reviewer-facing sections and key API/idempotency/architecture fragments remain present
 
 Quality gates run:
 
-- targeted check completed successfully: `bash -n scripts/smoke-demo.sh`
-- targeted check completed successfully: `uv run pytest tests/test_smoke_demo.py`
-- targeted static checks completed successfully: `uv run ruff check tests/test_smoke_demo.py`, `uv run ruff format --check tests/test_smoke_demo.py`, and `uv run mypy tests/test_smoke_demo.py`
-- targeted documentation/smoke tests completed successfully: `uv run pytest tests/test_smoke_demo.py tests/test_documentation.py`
+- targeted public-safety guardrail completed successfully: `python3 scripts/guardrails.py public-safety`
+- targeted documentation/smoke tests completed successfully: `uv run pytest tests/test_documentation.py tests/test_smoke_demo.py`
+- targeted static checks completed successfully: `uv run ruff check tests/test_documentation.py`, `uv run ruff format --check tests/test_documentation.py`, and `uv run mypy tests/test_documentation.py`
 - `scripts/quality-gate.sh` completed successfully after implementation
-- gate covered shell syntax checks, `uv sync --locked --all-groups`, Ruff check, Ruff format check, mypy strict checks, pytest with coverage (`129 passed`), Docker Compose config validation, and all three guardrail scripts
+- gate covered shell syntax checks, `uv sync --locked --all-groups`, Ruff check, Ruff format check, mypy strict checks, pytest with coverage (`130 passed`), Docker Compose config validation, and all three guardrail scripts
 
 Limitations:
 
-- The smoke script expects the local API stack to be reachable (default `http://localhost:8000`) and does not start or stop Docker Compose for the user.
-- The script exercises the happy path only; failure-mode and RBAC/tenant-isolation coverage remains in the automated pytest suite.
-- Existing project limitations remain: Compose credentials and JWT settings are local placeholders only, observability is local-demo oriented, API key scopes are coarse-grained, idempotency cleanup/concurrency hardening is not implemented, and local auth is not a hardened identity platform.
+- This ticket changed documentation only; existing application behaviour and project limitations remain unchanged.
+- Existing limitations remain: Compose credentials and JWT settings are local placeholders only, observability is local-demo oriented, API key scopes are coarse-grained, idempotency cleanup/concurrency hardening is not implemented, and local auth is not a hardened identity platform.
 
 ## Next recommended ticket
 
-Ticket 023.
+Ticket 024.
