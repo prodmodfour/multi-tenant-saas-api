@@ -420,7 +420,7 @@ Commit when complete.
 
 ## 009 — Add membership management API
 
-Status: TODO
+Status: DONE
 
 Implement routes:
 

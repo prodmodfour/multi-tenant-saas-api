@@ -22,6 +22,16 @@ from multi_tenant_saas_api.services.auth_api import (
     InvalidCredentialsError,
     PublicUser,
 )
+from multi_tenant_saas_api.services.memberships import (
+    MembershipAlreadyExistsError,
+    MembershipAPIService,
+    MembershipAPIServiceError,
+    MembershipList,
+    MembershipNotFoundError,
+    PublicMembership,
+    PublicMembershipUser,
+    TargetUserNotFoundError,
+)
 from multi_tenant_saas_api.services.organisations import (
     CreatedOrganisation,
     CreatedOwnerMembership,
@@ -62,6 +72,11 @@ __all__ = [
     "InvalidBearerTokenError",
     "InvalidCredentialsError",
     "LastOwnerProtectionError",
+    "MembershipAPIService",
+    "MembershipAPIServiceError",
+    "MembershipAlreadyExistsError",
+    "MembershipList",
+    "MembershipNotFoundError",
     "OrganisationAPIService",
     "OrganisationAPIServiceError",
     "OrganisationList",
@@ -74,10 +89,13 @@ __all__ = [
     "PrincipalResolutionError",
     "PrincipalResolverService",
     "PrincipalType",
+    "PublicMembership",
+    "PublicMembershipUser",
     "PublicOrganisation",
     "PublicUser",
     "RBACService",
     "RBACServiceError",
+    "TargetUserNotFoundError",
     "TenantAccessDeniedError",
     "TenantContext",
 ]

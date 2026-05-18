@@ -9,11 +9,11 @@ Organisations are the tenant boundary. Tenant-scoped business services must reso
 Roles:
 
 - `owner`: manage organisation, manage members, manage API keys, read/write projects, read audit events.
-- `admin`: update organisation metadata, manage members, manage API keys, read/write projects, read audit events.
+- `admin`: update organisation metadata, manage members except granting/changing/removing owner memberships, manage API keys, read/write projects, read audit events.
 - `member`: read organisation metadata and read/write projects.
 - `viewer`: read organisation metadata and read projects only.
 
-Every organisation must retain at least one owner. The RBAC service includes last-owner protection so future member-management workflows cannot remove or downgrade the final owner.
+Every organisation must retain at least one owner. The membership management workflow uses RBAC last-owner protection so member updates cannot remove or downgrade the final owner.
 
 ## Organisation API
 
@@ -25,3 +25,14 @@ Implemented organisation endpoints:
 - `PATCH /orgs/{org_id}`: requires tenant membership and `update_organisation` permission, so `owner` and `admin` can update metadata while `member` and `viewer` are denied.
 
 Organisation names are not globally unique; slugs are the unique tenant identifiers.
+
+## Membership API
+
+Implemented membership endpoints:
+
+- `GET /orgs/{org_id}/members`: requires tenant membership and `manage_members` permission, so only `owner` and `admin` members can list member records.
+- `POST /orgs/{org_id}/members`: adds an existing user to the organisation, rejects duplicate memberships, prevents admins from granting `owner`, and writes a `member.added` audit event with secret-safe metadata.
+- `PATCH /orgs/{org_id}/members/{user_id}`: changes a member role, prevents admins from changing owner memberships or granting `owner`, protects the final owner from downgrade, and writes a `member.role_changed` audit event.
+- `DELETE /orgs/{org_id}/members/{user_id}`: removes a member, prevents admins from removing owners, protects the final owner from removal, and writes a `member.removed` audit event.
+
+Membership responses embed only public user data (`id`, `email`, `display_name`, and `is_active`) and never include password hashes.

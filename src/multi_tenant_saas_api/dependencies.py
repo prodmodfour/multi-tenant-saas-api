@@ -16,6 +16,7 @@ from multi_tenant_saas_api.services import (
     RBACService,
 )
 from multi_tenant_saas_api.services.auth_api import AuthAPIService
+from multi_tenant_saas_api.services.memberships import MembershipAPIService
 from multi_tenant_saas_api.services.organisations import OrganisationAPIService
 
 _BEARER_SCHEME = HTTPBearer(auto_error=False)
@@ -72,6 +73,15 @@ def get_organisation_api_service(
     return OrganisationAPIService(session=session, rbac_service=rbac_service)
 
 
+def get_membership_api_service(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    rbac_service: Annotated[RBACService, Depends(get_rbac_service)],
+) -> MembershipAPIService:
+    """Build the membership management workflow service for one request."""
+
+    return MembershipAPIService(session=session, rbac_service=rbac_service)
+
+
 def require_bearer_token(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_BEARER_SCHEME)],
 ) -> str:
@@ -107,6 +117,7 @@ def _unauthorized(detail: str) -> HTTPException:
 __all__ = [
     "get_auth_api_service",
     "get_current_principal",
+    "get_membership_api_service",
     "get_organisation_api_service",
     "get_rbac_service",
     "get_session",

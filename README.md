@@ -57,11 +57,12 @@ The project currently includes the repository skeleton, a minimal FastAPI applic
 - request-scoped database session dependency wiring for API workflows
 - auth service workflows and routes for registration, login, and current-user lookup
 - organisation service workflows and routes for tenant creation, membership-scoped listing, detail reads, and owner/admin metadata updates
-- `POST /auth/register`, `POST /auth/login`, `GET /me`, `POST /orgs`, `GET /orgs`, `GET /orgs/{org_id}`, and `PATCH /orgs/{org_id}`
-- successful registration/login and organisation create/update audit event writes with secret-safe metadata
+- membership management service workflows and routes for owner/admin member listing, member add, role update, removal, admin owner-operation restrictions, and last-owner protection
+- `POST /auth/register`, `POST /auth/login`, `GET /me`, `POST /orgs`, `GET /orgs`, `GET /orgs/{org_id}`, `PATCH /orgs/{org_id}`, `GET /orgs/{org_id}/members`, `POST /orgs/{org_id}/members`, `PATCH /orgs/{org_id}/members/{user_id}`, and `DELETE /orgs/{org_id}/members/{user_id}`
+- successful registration/login, organisation create/update, and member add/update/remove audit event writes with secret-safe metadata
 - documentation and decisions directories
 
-Project/member/API-key routes, broader audit read integration, idempotency replay behaviour, readiness checks, metrics, Docker, and CI are intentionally not implemented yet; they will be added by later build tickets. The RBAC services are now wired into the organisation API and remain available for future tenant-scoped routes.
+Project/API-key routes, broader audit read integration, idempotency replay behaviour, readiness checks, metrics, Docker, and CI are intentionally not implemented yet; they will be added by later build tickets. The RBAC services are now wired into the organisation and membership APIs and remain available for future tenant-scoped routes.
 
 ## Requirements
 
@@ -134,6 +135,13 @@ Organisation endpoints:
 
 Organisation names are not globally unique; duplicate names are allowed when slugs differ. Organisation slugs are globally unique tenant identifiers.
 
+Membership endpoints:
+
+- `GET /orgs/{org_id}/members` — requires tenant membership and `manage_members` permission, returning paginated public member data without password hashes.
+- `POST /orgs/{org_id}/members` — requires `manage_members`, adds an existing user to the organisation, rejects duplicate memberships, prevents admins from granting `owner`, and records a `member.added` audit event.
+- `PATCH /orgs/{org_id}/members/{user_id}` — requires `manage_members`, changes a member role, prevents admins from changing owner memberships or granting `owner`, protects the final owner from downgrade, and records a `member.role_changed` audit event.
+- `DELETE /orgs/{org_id}/members/{user_id}` — requires `manage_members`, prevents admins from removing owners, protects the final owner from removal, and records a `member.removed` audit event.
+
 ## Role model and tenant access policy
 
 Organisations are the tenant boundary. Business workflows must resolve a current authenticated principal, load the user's membership for the target organisation, and enforce permissions before accessing tenant-owned data.
@@ -141,11 +149,11 @@ Organisations are the tenant boundary. Business workflows must resolve a current
 | Role | Permissions |
 | --- | --- |
 | `owner` | Manage organisation, manage members, manage API keys, read/write projects, read audit events. |
-| `admin` | Update organisation metadata, manage members, manage API keys, read/write projects, read audit events. |
+| `admin` | Update organisation metadata, manage non-owner members, manage API keys, read/write projects, read audit events; cannot grant, change, or remove `owner` memberships. |
 | `member` | Read organisation metadata and read/write projects. |
 | `viewer` | Read organisation metadata and read projects only. |
 
-The RBAC service resolves bearer tokens into secret-safe current principals, builds tenant contexts from organisation memberships, raises explicit not-found/access-denied/permission-denied errors, and protects the invariant that an organisation must always have at least one owner. The organisation API uses these services for tenant-scoped reads and updates; future tenant-scoped routes must do the same instead of performing permission checks in route handlers.
+The RBAC service resolves bearer tokens into secret-safe current principals, builds tenant contexts from organisation memberships, raises explicit not-found/access-denied/permission-denied errors, and protects the invariant that an organisation must always have at least one owner. The organisation and membership APIs use these services for tenant-scoped reads and mutations; future tenant-scoped routes must do the same instead of performing permission checks in route handlers.
 
 ## Domain, schema, and persistence contracts
 
