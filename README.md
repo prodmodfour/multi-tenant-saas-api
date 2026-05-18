@@ -53,9 +53,13 @@ The project currently includes the repository skeleton, a minimal FastAPI applic
 - tenant-scoped repository methods for organisation membership lists, project access, API key management, audit event reads, and idempotency lookups
 - password policy checks plus Argon2id password hashing and verification utilities
 - signed bearer access token creation/validation utilities and a typed authenticated principal model
+- request-scoped database session dependency wiring for API workflows
+- auth service workflows and routes for registration, login, and current-user lookup
+- `POST /auth/register`, `POST /auth/login`, and `GET /me`
+- successful registration/login audit event writes with secret-safe metadata
 - documentation and decisions directories
 
-Auth API routes, RBAC enforcement, tenant isolation at service/API level, audit logging integration, idempotency replay behaviour, metrics, Docker, and CI are intentionally not implemented yet; they will be added by later build tickets.
+RBAC enforcement, tenant isolation for organisation/project APIs, broader audit integration, idempotency replay behaviour, readiness checks, metrics, Docker, and CI are intentionally not implemented yet; they will be added by later build tickets.
 
 ## Requirements
 
@@ -105,11 +109,25 @@ OpenAPI documentation is disabled by default to model a safer production posture
 
 Do not copy real credentials into committed files. If you create a local `.env`, keep it untracked.
 
+## Implemented API surface
+
+System endpoints:
+
+- `GET /healthz` — liveness check with application metadata.
+
+Auth endpoints:
+
+- `POST /auth/register` — creates a local demo user, stores only an Argon2id-derived password hash, rejects duplicate email addresses, and returns public user fields.
+- `POST /auth/login` — validates local email/password credentials and returns a short-lived bearer access token with generic failure behaviour for unknown email or wrong password.
+- `GET /me` — requires `Authorization: Bearer <token>` and returns the current active user plus organisation membership summaries.
+
+Password hashes and raw passwords are never returned by these endpoints. Registration and successful login create nullable-organisation audit events with empty, secret-safe metadata.
+
 ## Domain, schema, and persistence contracts
 
-The current domain layer defines organisation roles (`owner`, `admin`, `member`, `viewer`), service-level permissions, project statuses, and audit action names. The Pydantic schemas define the planned API data contracts only; the backing routes and repository/service workflows are implemented in later tickets.
+The current domain layer defines organisation roles (`owner`, `admin`, `member`, `viewer`), service-level permissions, project statuses, and audit action names. The Pydantic schemas define the API data contracts, while service workflows own registration, login, and current-user business logic for the implemented auth endpoints.
 
-Password fields use secret-safe request types, response schemas do not include password hashes, and API key metadata schemas do not include raw keys or key hashes. The password utility enforces a configurable local policy and hashes new passwords with pwdlib's recommended Argon2id hasher before persistence. The bearer-token utility signs short-lived local demo access tokens and validates them into an authenticated user principal. Production systems need real secret management, TLS, token/key rotation, monitoring, and hardened identity review.
+Password fields use secret-safe request types, response schemas do not include password hashes, and API key metadata schemas do not include raw keys or key hashes. The password utility enforces a configurable local policy and hashes new passwords with pwdlib's recommended Argon2id hasher before persistence. The bearer-token utility signs short-lived local demo access tokens and validates them into an authenticated user principal for `GET /me`. Production systems need real secret management, TLS, token/key rotation, monitoring, and hardened identity review.
 
 The database model stores `password_hash` and `key_hash` fields only; raw API key material is represented only by the intentional one-time API key creation response schema.
 

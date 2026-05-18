@@ -312,7 +312,7 @@ Commit when complete.
 
 ## 006 — Add auth API routes
 
-Status: TODO
+Status: DONE
 
 Implement routes:
 
