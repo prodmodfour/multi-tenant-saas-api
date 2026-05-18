@@ -20,9 +20,12 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
+    "alembic>=1.14.0",
+    "asyncpg>=0.30.0",
     "email-validator>=2.3.0",
     "fastapi>=0.115.0",
     "pydantic-settings>=2.6.0",
+    "sqlalchemy>=2.0.36",
 ]
 
 [dependency-groups]

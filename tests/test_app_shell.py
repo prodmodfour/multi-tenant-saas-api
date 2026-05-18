@@ -63,9 +63,17 @@ def test_settings_are_loaded_from_saas_api_environment(monkeypatch: MonkeyPatch)
     monkeypatch.setenv("SAAS_API_APP_NAME", "Configured API")
     monkeypatch.setenv("SAAS_API_DOCS_ENABLED", "true")
     monkeypatch.setenv("SAAS_API_LOG_LEVEL", "debug")
+    monkeypatch.setenv(
+        "SAAS_API_DATABASE_URL",
+        "postgresql+asyncpg://saas_api:placeholder@localhost:5432/saas_api_test",
+    )
 
     settings = Settings()
 
     assert settings.app_name == "Configured API"
     assert settings.docs_enabled is True
     assert settings.log_level == "DEBUG"
+    assert (
+        settings.database_url
+        == "postgresql+asyncpg://saas_api:placeholder@localhost:5432/saas_api_test"
+    )

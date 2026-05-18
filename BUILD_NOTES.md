@@ -2,26 +2,29 @@
 
 ## Current state
 
-Tickets 000, 001, and 002 are complete. The repository now has the initial Python 3.12 `src/` layout, packaging configuration, documentation placeholders, local placeholder configuration, a Makefile, a basic import test, a minimal FastAPI application shell, and the first domain/schema contracts.
+Tickets 000, 001, 002, and 003 are complete. The repository now has the initial Python 3.12 `src/` layout, packaging configuration, documentation placeholders, local placeholder configuration, a Makefile, a basic import test, a minimal FastAPI application shell, the first domain/schema contracts, and the initial PostgreSQL persistence foundation.
 
 Implemented application behaviour currently includes:
 
 - FastAPI app factory at `multi_tenant_saas_api.app:create_app`
-- environment-backed settings using the `SAAS_API_` prefix
+- environment-backed settings using the `SAAS_API_` prefix, including `SAAS_API_DATABASE_URL`
 - docs/OpenAPI disabled by default and explicitly enableable with `SAAS_API_DOCS_ENABLED=true`
 - structured JSON logging configuration
 - `X-Request-ID` propagation and request-scoped log context
 - `GET /healthz`
 
-Implemented domain/schema contracts currently include:
+Implemented domain/schema/persistence contracts currently include:
 
 - typed domain identifiers for users, organisations, memberships, projects, API keys, and audit events
 - organisation roles (`owner`, `admin`, `member`, `viewer`) and immutable permission mapping helpers
 - project statuses and audit action enums
 - Pydantic schemas for planned auth, current-user, organisation, membership, project, API key, audit event, and pagination API contracts
-- secret-safe request schemas for passwords and response schemas that omit password hashes, API key hashes, and raw API key material except the intentional one-time API key creation response schema
+- async SQLAlchemy engine/session factory helpers
+- SQLAlchemy ORM models for users, organisations, organisation memberships, projects, API keys, audit events, and idempotency records
+- Alembic configuration and initial migration for the PostgreSQL schema
+- useful tenant-scoped indexes and uniqueness constraints, including organisation/user membership uniqueness and idempotency scoping indexes
 
-Persistence, authentication workflows, RBAC enforcement, tenant isolation, audit logging integration, idempotency, metrics, Docker, and CI are not implemented yet.
+Repository methods, authentication workflows, RBAC enforcement, tenant isolation at service/API level, audit logging integration, idempotency behaviour, readiness checks, metrics, Docker, and CI are not implemented yet.
 
 ## Quality gates
 
@@ -52,21 +55,25 @@ The committed `example.env` uses local placeholder values only and is not suitab
 
 ## Latest cycle notes
 
-Implemented Ticket 002:
+Implemented Ticket 003:
 
-- added `multi_tenant_saas_api.domain` with typed ID definitions, organisation roles, permissions, role-to-permission mapping helpers, project statuses, and audit actions
-- added Pydantic schemas for registration, login, current user, organisations, memberships, projects, API keys, audit events, and pagination metadata
-- used `SecretStr` for password request fields and added email validation support through the public `email-validator` dependency
-- kept password hashes and API key hashes out of response schemas; raw API key material appears only in the one-time API key creation response schema
-- added tests for role validation, permission mapping, schema validation, invalid emails, short passwords, invalid project statuses, invalid roles, invalid slugs, pagination metadata bounds, and secret-field exclusions
-- updated README current-status and domain/schema contract documentation
+- added SQLAlchemy, asyncpg, and Alembic dependencies
+- added `multi_tenant_saas_api.database` with shared metadata naming conventions, ORM models, and async engine/session factory helpers
+- added `SAAS_API_DATABASE_URL` to settings with a local placeholder PostgreSQL async URL
+- modelled the required tables: `users`, `organisations`, `organisation_memberships`, `projects`, `api_keys`, `audit_events`, and `idempotency_records`
+- included hashed-storage fields (`password_hash`, `key_hash`) and did not add raw password/API key persistence fields
+- added tenant-scoped indexes, uniqueness constraints, nullable audit organisation support, and scoped idempotency uniqueness indexes
+- added Alembic configuration and initial PostgreSQL migration at `alembic/versions/0001_initial_schema.py`
+- added tests for model metadata, constraints/indexes, secret-safe storage fields, async engine/session configuration, and offline Alembic SQL rendering
+- updated README configuration/current-status/persistence notes
 
 Limitations:
 
-- schemas define planned API contracts only; backing persistence, services, repositories, authentication utilities, and routes are not implemented yet
-- password policy enforcement is still schema-level minimum-length validation only; the dedicated password hashing and policy service is planned for Ticket 005
-- RBAC is represented by permission mapping helpers only; tenant context and enforcement are planned for Ticket 007 and later business API tickets
+- the persistence layer defines models and migrations only; repository methods and business workflows are planned for Ticket 004 and later tickets
+- no application routes currently open database sessions
+- no local PostgreSQL or Docker Compose stack is included yet; running Alembic online requires a separately available database until Ticket 016
+- password hashing, token authentication, RBAC checks, API key authentication, audit service integration, and idempotency replay handling remain future tickets
 
 ## Next recommended ticket
 
-Ticket 003.
+Ticket 004.

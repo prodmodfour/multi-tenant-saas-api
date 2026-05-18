@@ -130,7 +130,7 @@ Commit when complete.
 
 ## 003 — Add PostgreSQL persistence and Alembic migrations
 
-Status: TODO
+Status: DONE
 
 Implement:
 

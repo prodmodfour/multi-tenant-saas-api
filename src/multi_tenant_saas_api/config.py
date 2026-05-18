@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     environment: str = "local"
     log_level: str = "INFO"
     docs_enabled: bool = False
+    database_url: str = "postgresql+asyncpg://saas_api:saas_api@localhost:5432/saas_api"
 
     @field_validator("log_level")
     @classmethod

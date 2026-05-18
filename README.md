@@ -33,7 +33,7 @@ This is a portfolio implementation, not a production identity or security baseli
 
 ## Current status
 
-The project currently includes the repository skeleton and a minimal FastAPI application shell:
+The project currently includes the repository skeleton, a minimal FastAPI application shell, and the first persistence layer contracts:
 
 - Python 3.12 package using a `src/` layout
 - Hatchling build backend
@@ -46,9 +46,12 @@ The project currently includes the repository skeleton and a minimal FastAPI app
 - `GET /healthz` liveness endpoint
 - domain identifiers, organisation roles, permission mapping, project statuses, and audit actions
 - Pydantic request/response schemas for the planned auth, organisation, membership, project, API key, audit, and pagination contracts
+- async SQLAlchemy engine/session helpers
+- SQLAlchemy models for users, organisations, memberships, projects, API keys, audit events, and idempotency records
+- Alembic configuration and an initial PostgreSQL migration
 - documentation and decisions directories
 
-Persistence, authentication workflows, RBAC enforcement, tenant isolation, audit logging integration, idempotency, metrics, Docker, and CI are intentionally not implemented yet; they will be added by later build tickets.
+Authentication workflows, repository methods, RBAC enforcement, tenant isolation at service/API level, audit logging integration, idempotency behaviour, metrics, Docker, and CI are intentionally not implemented yet; they will be added by later build tickets.
 
 ## Requirements
 
@@ -88,16 +91,25 @@ Configuration uses environment variables prefixed with `SAAS_API_`. See `example
 | `SAAS_API_ENVIRONMENT` | `local` | Environment label included in health responses and future logs/metrics. |
 | `SAAS_API_LOG_LEVEL` | `INFO` | Structured JSON logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`). |
 | `SAAS_API_DOCS_ENABLED` | `false` | Enables `/docs`, `/redoc`, and `/openapi.json` for local exploration when set to `true`. |
+| `SAAS_API_DATABASE_URL` | `postgresql+asyncpg://saas_api:saas_api@localhost:5432/saas_api` | Async SQLAlchemy PostgreSQL URL used by the application and Alembic migrations. The default is a local placeholder only. |
 
 OpenAPI documentation is disabled by default to model a safer production posture. Enable it only for local exploration or explicitly configured demo environments.
 
 Do not copy real credentials into committed files. If you create a local `.env`, keep it untracked.
 
-## Domain and schema contracts
+## Domain, schema, and persistence contracts
 
-The current domain layer defines organisation roles (`owner`, `admin`, `member`, `viewer`), service-level permissions, project statuses, and audit action names. The Pydantic schemas define the planned API data contracts only; the backing routes and persistence are implemented in later tickets.
+The current domain layer defines organisation roles (`owner`, `admin`, `member`, `viewer`), service-level permissions, project statuses, and audit action names. The Pydantic schemas define the planned API data contracts only; the backing routes and repository/service workflows are implemented in later tickets.
 
-Password fields use secret-safe request types, response schemas do not include password hashes, and API key metadata schemas do not include raw keys or key hashes. Raw API key material is represented only by the intentional one-time API key creation response schema.
+Password fields use secret-safe request types, response schemas do not include password hashes, and API key metadata schemas do not include raw keys or key hashes. The database model stores `password_hash` and `key_hash` fields only; raw API key material is represented only by the intentional one-time API key creation response schema.
+
+The initial PostgreSQL schema is managed by Alembic:
+
+```bash
+uv run alembic upgrade head
+```
+
+A local PostgreSQL service is not included until the Docker Compose ticket, so the migration command requires a separately available database or a future Compose stack.
 
 ## Documentation
 
