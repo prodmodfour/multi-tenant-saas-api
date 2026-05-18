@@ -2,7 +2,7 @@
 
 ## Current state
 
-Tickets 000 through 020 are complete. The repository has a Python 3.12 `src/` layout, FastAPI app shell, environment-backed settings, structured JSON logging, request ID propagation, health/readiness/metrics endpoints, async SQLAlchemy persistence, Alembic migrations, repository layer, local demo auth, RBAC/tenant context, organisation APIs, membership management, tenant-scoped project APIs, organisation API key management, API key project authentication, an audit log API, idempotency support for selected unsafe creation endpoints, Prometheus metrics instrumentation, a local Docker Compose stack, local Prometheus/Grafana observability configuration, GitHub Actions CI, and dedicated architecture/security/API/operations/runbook documentation.
+Tickets 000 through 021 are complete. The repository has a Python 3.12 `src/` layout, FastAPI app shell, environment-backed settings, structured JSON logging, request ID propagation, health/readiness/metrics endpoints, async SQLAlchemy persistence, Alembic migrations, repository layer, local demo auth, RBAC/tenant context, organisation APIs, membership management, tenant-scoped project APIs, organisation API key management, API key project authentication, an audit log API, idempotency support for selected unsafe creation endpoints, Prometheus metrics instrumentation, a local Docker Compose stack, local Prometheus/Grafana observability configuration, GitHub Actions CI, dedicated architecture/security/API/operations/runbook documentation, and architecture decision records.
 
 Implemented application behaviour currently includes:
 
@@ -24,7 +24,7 @@ Implemented application behaviour currently includes:
 - basic Grafana dashboard JSON for API request rate, latency percentiles, auth attempts, domain workflow counters, idempotency outcomes, and audit events
 - GitHub Actions CI workflow at `.github/workflows/ci.yml` using Python 3.12, uv, a PostgreSQL service container, shell syntax checks, automation guardrails, Ruff, mypy, Docker Compose config validation, Alembic migration upgrade, and pytest with coverage
 - automation guardrail scripts for public-safety/private-term scanning, route-layer architecture boundary checks, and secret-looking response schema checks
-- dedicated docs at `docs/architecture.md`, `docs/security.md`, `docs/api-walkthrough.md`, `docs/operations.md`, and `docs/runbook.md`
+- dedicated docs at `docs/architecture.md`, `docs/security.md`, `docs/api-walkthrough.md`, `docs/operations.md`, and `docs/runbook.md`, plus ADRs under `docs/decisions/` for tenant modelling, RBAC, hashed passwords/API keys, idempotency records, and append-only audit events
 - `POST /auth/register` for local demo user registration with hashed password persistence only
 - `POST /auth/login` for local demo bearer-token login
 - auth attempt metrics for registration/login success and failure outcomes
@@ -88,7 +88,7 @@ Ran `scripts/quality-gate.sh` successfully. The gate completed:
 - Ruff check
 - Ruff format check
 - mypy strict checks for `src` and `tests`
-- pytest with coverage (`124 passed`)
+- pytest with coverage (`125 passed`)
 - Docker Compose config validation
 - public-safety, architecture-boundary, and secret-leakage guardrails
 
@@ -110,30 +110,29 @@ The committed `example.env` and `docker-compose.yml` use local placeholder value
 
 ## Latest cycle notes
 
-Implemented Ticket 020:
+Implemented Ticket 021:
 
-- added `docs/architecture.md` covering runtime components, layer boundaries, request flow, domain model, tenant isolation, RBAC, auth, API keys, audit logging, idempotency, observability, and production-hardening gaps
-- added `docs/security.md` covering public-safety boundaries, authentication/token/API-key handling, tenant isolation, audit metadata safety, idempotency safety, logging, configuration, and production-hardening gaps
-- added `docs/api-walkthrough.md` with a safe placeholder-based tour of registration, login, current user, organisations, memberships, projects, API keys, audit events, health/readiness, metrics, pagination, and common errors
-- added `docs/operations.md` covering local prerequisites, Docker Compose operation, configuration, migrations, health/readiness, metrics, logs, CI/quality gates, data retention, deployment considerations, and operational limitations
-- added `docs/runbook.md` covering local triage for startup, readiness, migrations, authentication, tenant access, last-owner protection, idempotency conflicts, API keys, audit events, metrics/dashboards, quality gate failures, and suspected secret exposure
-- updated the README and docs index to link to the new documentation set
-- added documentation tests that verify required topic docs exist and cover core themes
+- added ADR `docs/decisions/0001-organisations-as-tenants.md` for the organisation-as-tenant data model and tenant-scoped repository/service expectations
+- added ADR `docs/decisions/0002-role-based-access-control.md` for explicit organisation roles, service-level permission checks, API key machine-principal limits, and last-owner protection
+- added ADR `docs/decisions/0003-hashed-passwords-and-api-keys.md` for Argon2id password hashing, one-time API key create responses, stored key hashes/prefixes, and secret-safe logging/audit/idempotency handling
+- added ADR `docs/decisions/0004-idempotency-records.md` for scoped idempotency keys, request body hashes, safe response snapshots, conflict behaviour, and sanitized API key creation replays
+- added ADR `docs/decisions/0005-append-only-audit-events.md` for append-only audit creation, tenant-scoped audit reads, secret-safe metadata, and current audit limitations
+- updated the README and docs index to link to the ADR set
+- extended documentation tests to verify the ADR files exist, follow the required status/context/decision/consequences template, and are linked from reviewer-facing docs
 
 Quality gates run:
 
 - targeted check completed successfully: `uv run pytest tests/test_documentation.py`
 - targeted static checks completed successfully: `uv run ruff check tests/test_documentation.py`, `uv run ruff format --check tests/test_documentation.py`, and `uv run mypy tests/test_documentation.py`
-- public-safety guardrail completed successfully after adding docs
 - `scripts/quality-gate.sh` completed successfully after implementation
-- gate covered shell syntax checks, `uv sync --locked --all-groups`, Ruff check, Ruff format check, mypy strict checks, pytest with coverage (`124 passed`), Docker Compose config validation, and all three guardrail scripts
+- gate covered shell syntax checks, `uv sync --locked --all-groups`, Ruff check, Ruff format check, mypy strict checks, pytest with coverage (`125 passed`), Docker Compose config validation, and all three guardrail scripts
 
 Limitations:
 
-- The new documentation is descriptive guidance for a portfolio/demo API, not production operating procedures for a real customer environment.
-- Examples intentionally use placeholders only and avoid executable demo automation; the dedicated smoke/demo script remains for the next demo-focused ticket.
+- The ADRs document the current portfolio/demo design decisions and known production-hardening gaps; they do not add new runtime controls.
 - Existing project limitations remain: Compose credentials and JWT settings are local placeholders only, observability is local-demo oriented, API key scopes are coarse-grained, idempotency cleanup/concurrency hardening is not implemented, and local auth is not a hardened identity platform.
+- The safe smoke/demo script remains for the next demo-focused ticket.
 
 ## Next recommended ticket
 
-Ticket 021.
+Ticket 022.

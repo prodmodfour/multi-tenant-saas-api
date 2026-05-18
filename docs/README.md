@@ -8,7 +8,13 @@ Project documentation for the implemented API is organised by topic:
 - [Operations guide](operations.md)
 - [Runbook](runbook.md)
 
-ADR documentation will be added under `docs/decisions/` in the dedicated ADR ticket.
+Architecture decision records are tracked under `docs/decisions/`:
+
+- [0001 — Organisations as tenants](decisions/0001-organisations-as-tenants.md)
+- [0002 — Role-based access control](decisions/0002-role-based-access-control.md)
+- [0003 — Hashed passwords and API keys](decisions/0003-hashed-passwords-and-api-keys.md)
+- [0004 — Idempotency records](decisions/0004-idempotency-records.md)
+- [0005 — Append-only audit events](decisions/0005-append-only-audit-events.md)
 
 ## Continuous integration
 

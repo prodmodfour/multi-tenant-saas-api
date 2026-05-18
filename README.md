@@ -291,4 +291,10 @@ Detailed documentation is available under `docs/`:
 - [Operations guide](docs/operations.md)
 - [Runbook](docs/runbook.md)
 
-ADR documentation will be added in the dedicated ADR ticket.
+Architecture decision records:
+
+- [0001 — Organisations as tenants](docs/decisions/0001-organisations-as-tenants.md)
+- [0002 — Role-based access control](docs/decisions/0002-role-based-access-control.md)
+- [0003 — Hashed passwords and API keys](docs/decisions/0003-hashed-passwords-and-api-keys.md)
+- [0004 — Idempotency records](docs/decisions/0004-idempotency-records.md)
+- [0005 — Append-only audit events](docs/decisions/0005-append-only-audit-events.md)
