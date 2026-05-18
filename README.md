@@ -129,6 +129,14 @@ Useful local URLs:
 - Grafana: <http://localhost:3000> (`admin` / `local-placeholder-grafana-password`)
 - Grafana dashboard: browse to **Dashboards** → **Portfolio SaaS API** → **Multi-Tenant SaaS API Overview**
 
+Run the scripted smoke demo after the API is ready:
+
+```bash
+scripts/smoke-demo.sh
+```
+
+The smoke demo registers placeholder `example.com` users, creates an organisation and project, adds a member, creates and revokes an API key, reads audit events, and checks metrics. It captures bearer tokens and the one-time API key response in memory only and does not print them. Override the target API with `SAAS_API_DEMO_BASE_URL` or set `SAAS_API_DEMO_RUN_ID` to choose a repeatable slug-safe demo run ID.
+
 Shut down the stack with:
 
 ```bash

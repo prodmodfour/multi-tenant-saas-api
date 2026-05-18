@@ -43,6 +43,8 @@ Run the stack with:
 docker compose up --build
 ```
 
+After the API is ready, `scripts/smoke-demo.sh` runs a public-safe end-to-end demo using placeholder users. It covers registration, login, organisation creation, membership management, project creation/listing/update, API key creation/use/revocation, audit event reads, and metrics checks without printing bearer tokens, demo passwords, or raw API key material.
+
 ## Role model
 
 Organisations are the tenant boundary. User-driven tenant-scoped business services must resolve the current authenticated principal, load the principal's organisation membership, and enforce role permissions before reading or mutating tenant-owned data. Project services additionally accept active organisation-scoped API keys and require the key's organisation to match the route tenant.

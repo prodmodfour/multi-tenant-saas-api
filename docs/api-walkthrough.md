@@ -19,6 +19,27 @@ docker compose up --build
 
 OpenAPI is disabled by default outside explicitly configured local exploration.
 
+## Scripted smoke demo
+
+For a repeatable local check of the implemented happy path, run the smoke script
+after the Compose API is ready:
+
+```bash
+scripts/smoke-demo.sh
+```
+
+The script performs the same sequence as this walkthrough: register an owner,
+login, create an organisation, register a second user, add the member, create and
+list a project with pagination/filtering/sorting, update the project, create an
+API key, use it on an allowed project endpoint, revoke it, show audit event
+summaries, and verify key Prometheus metric families. It uses placeholder
+`example.com` users and local demo passwords only. It does not print bearer
+tokens, demo passwords, or raw API key material. Optional environment variables:
+
+- `SAAS_API_DEMO_BASE_URL` — API base URL; defaults to `http://localhost:8000`.
+- `SAAS_API_DEMO_RUN_ID` — slug-safe run identifier for deterministic demo data;
+  when omitted, the script generates a timestamp-plus-random-suffix ID.
+
 ## 1. Register a user
 
 `POST /auth/register` creates a local demo user and stores only a password hash.

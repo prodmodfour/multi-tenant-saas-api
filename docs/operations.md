@@ -70,6 +70,17 @@ Useful endpoints:
 - Grafana dashboard: **Dashboards** → **Portfolio SaaS API** →
   **Multi-Tenant SaaS API Overview**
 
+Run the local smoke/demo workflow after readiness succeeds:
+
+```bash
+scripts/smoke-demo.sh
+```
+
+The script uses placeholder `example.com` users and generated local demo
+passwords. It does not print bearer tokens or raw API key material while it
+exercises registration, login, organisation and member workflows, project
+filtering, API key use/revocation, audit reads, and metrics checks.
+
 Stop the stack:
 
 ```bash

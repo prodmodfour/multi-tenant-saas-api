@@ -2,7 +2,7 @@
 
 ## Current state
 
-Tickets 000 through 021 are complete. The repository has a Python 3.12 `src/` layout, FastAPI app shell, environment-backed settings, structured JSON logging, request ID propagation, health/readiness/metrics endpoints, async SQLAlchemy persistence, Alembic migrations, repository layer, local demo auth, RBAC/tenant context, organisation APIs, membership management, tenant-scoped project APIs, organisation API key management, API key project authentication, an audit log API, idempotency support for selected unsafe creation endpoints, Prometheus metrics instrumentation, a local Docker Compose stack, local Prometheus/Grafana observability configuration, GitHub Actions CI, dedicated architecture/security/API/operations/runbook documentation, and architecture decision records.
+Tickets 000 through 022 are complete. The repository has a Python 3.12 `src/` layout, FastAPI app shell, environment-backed settings, structured JSON logging, request ID propagation, health/readiness/metrics endpoints, async SQLAlchemy persistence, Alembic migrations, repository layer, local demo auth, RBAC/tenant context, organisation APIs, membership management, tenant-scoped project APIs, organisation API key management, API key project authentication, an audit log API, idempotency support for selected unsafe creation endpoints, Prometheus metrics instrumentation, a local Docker Compose stack, local Prometheus/Grafana observability configuration, a safe local smoke/demo script, GitHub Actions CI, dedicated architecture/security/API/operations/runbook documentation, and architecture decision records.
 
 Implemented application behaviour currently includes:
 
@@ -23,6 +23,7 @@ Implemented application behaviour currently includes:
 - Grafana provisioning for a Prometheus datasource and file-loaded dashboard under `observability/grafana/`
 - basic Grafana dashboard JSON for API request rate, latency percentiles, auth attempts, domain workflow counters, idempotency outcomes, and audit events
 - GitHub Actions CI workflow at `.github/workflows/ci.yml` using Python 3.12, uv, a PostgreSQL service container, shell syntax checks, automation guardrails, Ruff, mypy, Docker Compose config validation, Alembic migration upgrade, and pytest with coverage
+- public-safe smoke/demo script at `scripts/smoke-demo.sh` for a local Compose API, covering registration, login, organisation creation, second-user registration, member add, project create/list/update, API key create/use/revoke, audit event summaries, and metrics checks without printing bearer tokens, demo passwords, or raw API key material
 - automation guardrail scripts for public-safety/private-term scanning, route-layer architecture boundary checks, and secret-looking response schema checks
 - dedicated docs at `docs/architecture.md`, `docs/security.md`, `docs/api-walkthrough.md`, `docs/operations.md`, and `docs/runbook.md`, plus ADRs under `docs/decisions/` for tenant modelling, RBAC, hashed passwords/API keys, idempotency records, and append-only audit events
 - `POST /auth/register` for local demo user registration with hashed password persistence only
@@ -88,7 +89,7 @@ Ran `scripts/quality-gate.sh` successfully. The gate completed:
 - Ruff check
 - Ruff format check
 - mypy strict checks for `src` and `tests`
-- pytest with coverage (`125 passed`)
+- pytest with coverage (`129 passed`)
 - Docker Compose config validation
 - public-safety, architecture-boundary, and secret-leakage guardrails
 
@@ -110,29 +111,29 @@ The committed `example.env` and `docker-compose.yml` use local placeholder value
 
 ## Latest cycle notes
 
-Implemented Ticket 021:
+Implemented Ticket 022:
 
-- added ADR `docs/decisions/0001-organisations-as-tenants.md` for the organisation-as-tenant data model and tenant-scoped repository/service expectations
-- added ADR `docs/decisions/0002-role-based-access-control.md` for explicit organisation roles, service-level permission checks, API key machine-principal limits, and last-owner protection
-- added ADR `docs/decisions/0003-hashed-passwords-and-api-keys.md` for Argon2id password hashing, one-time API key create responses, stored key hashes/prefixes, and secret-safe logging/audit/idempotency handling
-- added ADR `docs/decisions/0004-idempotency-records.md` for scoped idempotency keys, request body hashes, safe response snapshots, conflict behaviour, and sanitized API key creation replays
-- added ADR `docs/decisions/0005-append-only-audit-events.md` for append-only audit creation, tenant-scoped audit reads, secret-safe metadata, and current audit limitations
-- updated the README and docs index to link to the ADR set
-- extended documentation tests to verify the ADR files exist, follow the required status/context/decision/consequences template, and are linked from reviewer-facing docs
+- added executable `scripts/smoke-demo.sh` for a public-safe local Docker Compose API demo
+- the script waits for `/readyz`, registers placeholder owner/member users, logs in, creates an organisation, adds the member, creates a project, lists projects with pagination/filtering/sorting, updates the project, creates an API key, uses the key on a permitted project endpoint, revokes the key, prints secret-safe audit event summaries, and checks key Prometheus metric families
+- the script uses `example.com` users and generated local placeholder passwords, captures bearer tokens and one-time raw API key material only for the local run, redacts unexpected error bodies, avoids `set -x`, does not print demo passwords/tokens/raw API keys, and unsets the raw API key variable after revocation
+- documented the smoke demo in the README, API walkthrough, docs index, and operations guide, including optional `SAAS_API_DEMO_BASE_URL` and `SAAS_API_DEMO_RUN_ID` overrides
+- added static smoke-demo tests that verify script executability/syntax, required workflow coverage, public-safe handling notes, and reviewer-facing documentation links
 
 Quality gates run:
 
-- targeted check completed successfully: `uv run pytest tests/test_documentation.py`
-- targeted static checks completed successfully: `uv run ruff check tests/test_documentation.py`, `uv run ruff format --check tests/test_documentation.py`, and `uv run mypy tests/test_documentation.py`
+- targeted check completed successfully: `bash -n scripts/smoke-demo.sh`
+- targeted check completed successfully: `uv run pytest tests/test_smoke_demo.py`
+- targeted static checks completed successfully: `uv run ruff check tests/test_smoke_demo.py`, `uv run ruff format --check tests/test_smoke_demo.py`, and `uv run mypy tests/test_smoke_demo.py`
+- targeted documentation/smoke tests completed successfully: `uv run pytest tests/test_smoke_demo.py tests/test_documentation.py`
 - `scripts/quality-gate.sh` completed successfully after implementation
-- gate covered shell syntax checks, `uv sync --locked --all-groups`, Ruff check, Ruff format check, mypy strict checks, pytest with coverage (`125 passed`), Docker Compose config validation, and all three guardrail scripts
+- gate covered shell syntax checks, `uv sync --locked --all-groups`, Ruff check, Ruff format check, mypy strict checks, pytest with coverage (`129 passed`), Docker Compose config validation, and all three guardrail scripts
 
 Limitations:
 
-- The ADRs document the current portfolio/demo design decisions and known production-hardening gaps; they do not add new runtime controls.
+- The smoke script expects the local API stack to be reachable (default `http://localhost:8000`) and does not start or stop Docker Compose for the user.
+- The script exercises the happy path only; failure-mode and RBAC/tenant-isolation coverage remains in the automated pytest suite.
 - Existing project limitations remain: Compose credentials and JWT settings are local placeholders only, observability is local-demo oriented, API key scopes are coarse-grained, idempotency cleanup/concurrency hardening is not implemented, and local auth is not a hardened identity platform.
-- The safe smoke/demo script remains for the next demo-focused ticket.
 
 ## Next recommended ticket
 
-Ticket 022.
+Ticket 023.
