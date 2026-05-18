@@ -1,0 +1,66 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "multi-tenant-saas-api"
+version = "0.1.0"
+description = "Public portfolio FastAPI backend for a production-style multi-tenant SaaS API."
+readme = "README.md"
+requires-python = ">=3.12,<4.0"
+license = { text = "MIT" }
+authors = [{ name = "Portfolio Project Maintainer" }]
+keywords = ["fastapi", "saas", "multi-tenant", "portfolio", "backend"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Framework :: FastAPI",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Typing :: Typed",
+]
+dependencies = []
+
+[dependency-groups]
+dev = [
+  "mypy>=1.18.2",
+  "pytest>=9.0.1",
+  "pytest-cov>=7.0.0",
+  "ruff>=0.14.8",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/multi_tenant_saas_api"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--strict-config", "--strict-markers"]
+
+[tool.coverage.run]
+branch = true
+source = ["multi_tenant_saas_api"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "SIM", "UP"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+pretty = true
+show_error_codes = true
+mypy_path = ["src"]
