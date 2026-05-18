@@ -38,8 +38,8 @@ The project currently includes the repository skeleton, FastAPI application shel
 - Python 3.12 package using a `src/` layout
 - Hatchling build backend
 - Ruff, mypy strict mode, pytest, and pytest-cov configuration
-- quality gate script
-- GitHub Actions CI workflow for dependency sync, linting, formatting, type checks, migrations, tests, and Docker Compose validation
+- quality gate script with public-safety, architecture-boundary, and secret-response guardrails
+- GitHub Actions CI workflow for dependency sync, guardrails, linting, formatting, type checks, migrations, tests, and Docker Compose validation
 - FastAPI app factory at `multi_tenant_saas_api.app:create_app`
 - environment-backed settings using the `SAAS_API_` prefix
 - structured JSON logging with request ID context
@@ -73,7 +73,7 @@ The project currently includes the repository skeleton, FastAPI application shel
 - Grafana provisioning for the Prometheus datasource and a basic SaaS API overview dashboard
 - documentation and decisions directories
 
-GitHub Actions CI is implemented in `.github/workflows/ci.yml`. It runs shell syntax checks, optional guardrail scripts when present, `uv sync --locked --all-groups`, Ruff, mypy, Docker Compose config validation, Alembic migration upgrade against a PostgreSQL service container, and pytest with coverage. The RBAC services are wired into the organisation, membership, project, API key, audit, idempotency-aware, and metrics APIs and remain available for future tenant-scoped routes.
+GitHub Actions CI is implemented in `.github/workflows/ci.yml`. It runs shell syntax checks, automation guardrails, `uv sync --locked --all-groups`, Ruff, mypy, Docker Compose config validation, Alembic migration upgrade against a PostgreSQL service container, and pytest with coverage. The RBAC services are wired into the organisation, membership, project, API key, audit, idempotency-aware, and metrics APIs and remain available for future tenant-scoped routes.
 
 ## Requirements
 
@@ -93,6 +93,8 @@ Run the full local quality gate:
 ```bash
 scripts/quality-gate.sh
 ```
+
+The quality gate includes automation guardrails for public-safety/private-term scanning, route-layer architecture boundaries, and secret-looking response schema fields. Locally supplied private or employer terms can be checked without committing them by setting `SAAS_API_FORBIDDEN_TERMS_FILE` to a newline-delimited local file before running the gate.
 
 The GitHub Actions CI workflow mirrors these checks and also runs `alembic upgrade head` against a PostgreSQL service container.
 

@@ -4,7 +4,13 @@ Project documentation will be expanded as implementation tickets add architectur
 
 ## Continuous integration
 
-GitHub Actions CI is defined in `.github/workflows/ci.yml`. The workflow uses Python 3.12, uv, and a PostgreSQL service container. It runs shell syntax checks, optional automation guardrails when their scripts exist, dependency sync from `uv.lock`, Ruff linting and format checks, mypy, Docker Compose config validation, Alembic migration upgrade, and pytest with coverage.
+GitHub Actions CI is defined in `.github/workflows/ci.yml`. The workflow uses Python 3.12, uv, and a PostgreSQL service container. It runs shell syntax checks, automation guardrails, dependency sync from `uv.lock`, Ruff linting and format checks, mypy, Docker Compose config validation, Alembic migration upgrade, and pytest with coverage.
+
+Implemented guardrails live under `scripts/` and are also part of `scripts/quality-gate.sh`:
+
+- `check-public-safety.sh` scans tracked/non-ignored files for committed `.env` files, real-looking secrets, internal-looking hostnames, sample-file secret values, and locally supplied forbidden terms from `SAAS_API_FORBIDDEN_TERMS_FILE`.
+- `check-architecture-boundaries.sh` rejects obvious route-layer imports or calls that cross directly into SQLAlchemy/database/repository concerns.
+- `check-secret-leakage.sh` rejects secret-looking fields on public response schema classes except the documented login token and one-time API key creation response.
 
 ## Local Docker Compose stack
 

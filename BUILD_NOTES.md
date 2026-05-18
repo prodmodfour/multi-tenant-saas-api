@@ -2,7 +2,7 @@
 
 ## Current state
 
-Tickets 000 through 018 are complete. The repository has a Python 3.12 `src/` layout, FastAPI app shell, environment-backed settings, structured JSON logging, request ID propagation, health/readiness/metrics endpoints, async SQLAlchemy persistence, Alembic migrations, repository layer, local demo auth, RBAC/tenant context, organisation APIs, membership management, tenant-scoped project APIs, organisation API key management, API key project authentication, an audit log API, idempotency support for selected unsafe creation endpoints, Prometheus metrics instrumentation, a local Docker Compose stack, local Prometheus/Grafana observability configuration, and GitHub Actions CI.
+Tickets 000 through 019 are complete. The repository has a Python 3.12 `src/` layout, FastAPI app shell, environment-backed settings, structured JSON logging, request ID propagation, health/readiness/metrics endpoints, async SQLAlchemy persistence, Alembic migrations, repository layer, local demo auth, RBAC/tenant context, organisation APIs, membership management, tenant-scoped project APIs, organisation API key management, API key project authentication, an audit log API, idempotency support for selected unsafe creation endpoints, Prometheus metrics instrumentation, a local Docker Compose stack, local Prometheus/Grafana observability configuration, and GitHub Actions CI.
 
 Implemented application behaviour currently includes:
 
@@ -22,7 +22,8 @@ Implemented application behaviour currently includes:
 - Prometheus scrape configuration at `observability/prometheus/prometheus.yml` for the Compose API target `api:8000/metrics`
 - Grafana provisioning for a Prometheus datasource and file-loaded dashboard under `observability/grafana/`
 - basic Grafana dashboard JSON for API request rate, latency percentiles, auth attempts, domain workflow counters, idempotency outcomes, and audit events
-- GitHub Actions CI workflow at `.github/workflows/ci.yml` using Python 3.12, uv, a PostgreSQL service container, shell syntax checks, optional guardrails, Ruff, mypy, Docker Compose config validation, Alembic migration upgrade, and pytest with coverage
+- GitHub Actions CI workflow at `.github/workflows/ci.yml` using Python 3.12, uv, a PostgreSQL service container, shell syntax checks, automation guardrails, Ruff, mypy, Docker Compose config validation, Alembic migration upgrade, and pytest with coverage
+- automation guardrail scripts for public-safety/private-term scanning, route-layer architecture boundary checks, and secret-looking response schema checks
 - `POST /auth/register` for local demo user registration with hashed password persistence only
 - `POST /auth/login` for local demo bearer-token login
 - auth attempt metrics for registration/login success and failure outcomes
@@ -86,8 +87,9 @@ Ran `scripts/quality-gate.sh` successfully. The gate completed:
 - Ruff check
 - Ruff format check
 - mypy strict checks for `src` and `tests`
-- pytest with coverage (`113 passed`)
+- pytest with coverage (`122 passed`)
 - Docker Compose config validation
+- public-safety, architecture-boundary, and secret-leakage guardrails
 
 ## Public-safety notes
 
@@ -107,32 +109,30 @@ The committed `example.env` and `docker-compose.yml` use local placeholder value
 
 ## Latest cycle notes
 
-Implemented Ticket 018:
+Implemented Ticket 019:
 
-- added `.github/workflows/ci.yml` for GitHub Actions CI on push and pull request events
-- configured CI to use Python 3.12, uv, and a PostgreSQL 16 service container with public-safe local placeholder credentials
-- added CI steps for shell syntax checks, optional guardrail scripts when present, `uv sync --locked --all-groups`, Ruff check, Ruff format check, mypy, Docker Compose config validation, Alembic migration upgrade, and pytest with coverage
-- added static tests validating that the CI workflow declares the PostgreSQL service and required quality/migration commands
-- updated README and docs/README to describe the implemented CI workflow and PostgreSQL-backed migration step
+- added `scripts/guardrails.py` plus shell wrappers for public-safety/private-term checks, route-layer architecture boundary checks, and secret-looking response schema checks
+- public-safety guardrail scans tracked/non-ignored files for committed `.env` files, high-confidence secret token shapes, internal-looking hostnames, sample-file secret values, and locally supplied forbidden terms via `SAAS_API_FORBIDDEN_TERMS_FILE`
+- architecture guardrail rejects obvious route-layer imports of SQLAlchemy/database/repository modules and direct persistence or hashing/token utility calls in route modules
+- secret-leakage guardrail rejects secret-looking fields on public response schema classes while allowing the intentional `LoginResponse.access_token` and one-time `APIKeyCreateResponse.raw_key` fields
+- wired the guardrail scripts into GitHub Actions CI as required commands and documented the guardrails in README/docs
+- added guardrail tests covering passing placeholder examples, `.env`/secret pattern failures, local forbidden terms, raw bearer examples, route persistence violations, and response secret-field violations
 
 Quality gates run:
 
-- targeted check completed successfully: `uv run pytest tests/test_ci_workflow.py`
+- targeted check completed successfully: `uv run pytest tests/test_guardrails.py tests/test_ci_workflow.py`
+- targeted static checks completed successfully: `uv run ruff check .`, `uv run ruff format --check .`, and `uv run mypy tests/test_guardrails.py tests/test_ci_workflow.py`
 - `scripts/quality-gate.sh` completed successfully after implementation
-- gate covered shell syntax checks, `uv sync --locked --all-groups`, Ruff check, Ruff format check, mypy strict checks, pytest with coverage (`113 passed`), and Docker Compose config validation
+- gate covered shell syntax checks, `uv sync --locked --all-groups`, Ruff check, Ruff format check, mypy strict checks, pytest with coverage (`122 passed`), Docker Compose config validation, and all three guardrail scripts
 
 Limitations:
 
-- Prometheus and Grafana configuration is local-demo oriented only and is not a production observability baseline.
-- Grafana uses committed local placeholder admin credentials; production deployments need managed secrets and authenticated dashboard access.
-- The dashboard is intentionally basic and does not include alert rules, SLOs, retention configuration, or long-term storage.
-- Metrics are process-local; multi-process deployment aggregation and long-term retention would require production observability infrastructure.
-- Compose credentials and JWT settings are local placeholders only and are not suitable for production.
-- API keys currently have fixed project read/write capability for their owning organisation; fine-grained API key scopes are not implemented.
-- Idempotency expiry cleanup and simultaneous first-request concurrency hardening are not implemented; production systems should use transactional first-writer handling and operational cleanup.
-- API key hashes use deterministic SHA-256 over high-entropy generated keys for demo lookup; production systems may add a dedicated secret pepper or managed key service.
-- Audit and idempotency metadata intentionally contain no passwords, password hashes, bearer tokens, raw API keys, key hashes, or private authentication material.
+- Automation guardrails are heuristic static checks, not a substitute for reviewed secret scanning, security review, or production data-loss prevention controls.
+- The public-safety forbidden-term list is intentionally supplied from a local uncommitted file; no private/employer terms are committed to the repository.
+- The architecture guardrail catches obvious route-to-database violations but cannot prove every future workflow respects layering or tenant scoping.
+- The secret-response guardrail checks schema field names and still relies on service/API tests and review to prove runtime responses remain secret-safe.
+- Existing project limitations remain: Compose credentials and JWT settings are local placeholders only, observability is local-demo oriented, API key scopes are coarse-grained, and idempotency cleanup/concurrency hardening is not implemented.
 
 ## Next recommended ticket
 
-Ticket 019.
+Ticket 020.

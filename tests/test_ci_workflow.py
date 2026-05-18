@@ -31,6 +31,7 @@ def test_ci_workflow_runs_required_quality_and_migration_steps() -> None:
         "bash -n",
         "scripts/check-public-safety.sh",
         "scripts/check-architecture-boundaries.sh",
+        "scripts/check-secret-leakage.sh",
         "uv sync --locked --all-groups",
         "uv run ruff check .",
         "uv run ruff format --check .",
