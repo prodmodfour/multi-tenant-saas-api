@@ -2,6 +2,10 @@
 
 Project documentation will be expanded as implementation tickets add architecture, API behaviour, operations, security guidance, runbooks, and ADRs.
 
+## Continuous integration
+
+GitHub Actions CI is defined in `.github/workflows/ci.yml`. The workflow uses Python 3.12, uv, and a PostgreSQL service container. It runs shell syntax checks, optional automation guardrails when their scripts exist, dependency sync from `uv.lock`, Ruff linting and format checks, mypy, Docker Compose config validation, Alembic migration upgrade, and pytest with coverage.
+
 ## Local Docker Compose stack
 
 The repository includes a local-only Docker Compose stack for demo exploration. It starts:

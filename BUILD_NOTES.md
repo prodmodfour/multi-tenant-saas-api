@@ -2,7 +2,7 @@
 
 ## Current state
 
-Tickets 000 through 017 are complete. The repository has a Python 3.12 `src/` layout, FastAPI app shell, environment-backed settings, structured JSON logging, request ID propagation, health/readiness/metrics endpoints, async SQLAlchemy persistence, Alembic migrations, repository layer, local demo auth, RBAC/tenant context, organisation APIs, membership management, tenant-scoped project APIs, organisation API key management, API key project authentication, an audit log API, idempotency support for selected unsafe creation endpoints, Prometheus metrics instrumentation, a local Docker Compose stack, and local Prometheus/Grafana observability configuration.
+Tickets 000 through 018 are complete. The repository has a Python 3.12 `src/` layout, FastAPI app shell, environment-backed settings, structured JSON logging, request ID propagation, health/readiness/metrics endpoints, async SQLAlchemy persistence, Alembic migrations, repository layer, local demo auth, RBAC/tenant context, organisation APIs, membership management, tenant-scoped project APIs, organisation API key management, API key project authentication, an audit log API, idempotency support for selected unsafe creation endpoints, Prometheus metrics instrumentation, a local Docker Compose stack, local Prometheus/Grafana observability configuration, and GitHub Actions CI.
 
 Implemented application behaviour currently includes:
 
@@ -22,6 +22,7 @@ Implemented application behaviour currently includes:
 - Prometheus scrape configuration at `observability/prometheus/prometheus.yml` for the Compose API target `api:8000/metrics`
 - Grafana provisioning for a Prometheus datasource and file-loaded dashboard under `observability/grafana/`
 - basic Grafana dashboard JSON for API request rate, latency percentiles, auth attempts, domain workflow counters, idempotency outcomes, and audit events
+- GitHub Actions CI workflow at `.github/workflows/ci.yml` using Python 3.12, uv, a PostgreSQL service container, shell syntax checks, optional guardrails, Ruff, mypy, Docker Compose config validation, Alembic migration upgrade, and pytest with coverage
 - `POST /auth/register` for local demo user registration with hashed password persistence only
 - `POST /auth/login` for local demo bearer-token login
 - auth attempt metrics for registration/login success and failure outcomes
@@ -74,7 +75,7 @@ Implemented domain/schema/persistence contracts currently include:
 - service-layer DTOs for public auth, organisation, membership, project, API key, audit, RBAC, readiness, and idempotency workflows
 - secret-field rejection for idempotency response snapshots so obvious password, bearer-token, raw-key, and key-hash fields are not persisted for replay
 
-CI is not implemented yet.
+CI is implemented with local placeholder settings only and runs Alembic migrations against a PostgreSQL service container.
 
 ## Quality gates
 
@@ -85,7 +86,7 @@ Ran `scripts/quality-gate.sh` successfully. The gate completed:
 - Ruff check
 - Ruff format check
 - mypy strict checks for `src` and `tests`
-- pytest with coverage (`111 passed`)
+- pytest with coverage (`113 passed`)
 - Docker Compose config validation
 
 ## Public-safety notes
@@ -106,29 +107,22 @@ The committed `example.env` and `docker-compose.yml` use local placeholder value
 
 ## Latest cycle notes
 
-Implemented Ticket 017:
+Implemented Ticket 018:
 
-- added `observability/prometheus/prometheus.yml` with a local scrape job for the API metrics endpoint at `api:8000/metrics`
-- mounted the Prometheus scrape configuration into the Compose `prometheus` service read-only
-- added Grafana datasource provisioning for the local Prometheus service with the stable datasource UID `prometheus`
-- added Grafana dashboard provisioning for file-loaded dashboards in the local Compose stack
-- added `observability/grafana/dashboards/saas-api-overview.json` with panels for request rate, latency percentiles, auth attempts, domain workflow counters, idempotency outcomes, and audit events
-- mounted Grafana provisioning and dashboard directories into the Compose `grafana` service read-only
-- added static tests for Prometheus configuration, Grafana provisioning, dashboard JSON, expected metric queries, and Compose mounts
-- updated README and docs/README with local observability URLs, target-health guidance, dashboard location, and local-only limitations
-- excluded Grafana dashboard JSON from Ruff formatting so the committed dashboard remains strict JSON for Grafana and test parsing
+- added `.github/workflows/ci.yml` for GitHub Actions CI on push and pull request events
+- configured CI to use Python 3.12, uv, and a PostgreSQL 16 service container with public-safe local placeholder credentials
+- added CI steps for shell syntax checks, optional guardrail scripts when present, `uv sync --locked --all-groups`, Ruff check, Ruff format check, mypy, Docker Compose config validation, Alembic migration upgrade, and pytest with coverage
+- added static tests validating that the CI workflow declares the PostgreSQL service and required quality/migration commands
+- updated README and docs/README to describe the implemented CI workflow and PostgreSQL-backed migration step
 
 Quality gates run:
 
-- `python3 -m json.tool observability/grafana/dashboards/saas-api-overview.json` completed successfully
-- `docker compose config` completed successfully before the full gate
-- targeted checks completed successfully: `uv run ruff format --check .`, `uv run ruff check .`, `uv run mypy src tests`, and `uv run pytest tests/test_observability_config.py`
+- targeted check completed successfully: `uv run pytest tests/test_ci_workflow.py`
 - `scripts/quality-gate.sh` completed successfully after implementation
-- gate covered shell syntax checks, `uv sync --locked --all-groups`, Ruff check, Ruff format check, mypy strict checks, pytest with coverage (`111 passed`), and Docker Compose config validation
+- gate covered shell syntax checks, `uv sync --locked --all-groups`, Ruff check, Ruff format check, mypy strict checks, pytest with coverage (`113 passed`), and Docker Compose config validation
 
 Limitations:
 
-- CI is not implemented yet.
 - Prometheus and Grafana configuration is local-demo oriented only and is not a production observability baseline.
 - Grafana uses committed local placeholder admin credentials; production deployments need managed secrets and authenticated dashboard access.
 - The dashboard is intentionally basic and does not include alert rules, SLOs, retention configuration, or long-term storage.
@@ -141,4 +135,4 @@ Limitations:
 
 ## Next recommended ticket
 
-Ticket 018.
+Ticket 019.

@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Quality gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: saas_api
+          POSTGRES_USER: saas_api
+          POSTGRES_PASSWORD: local-placeholder-postgres-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U saas_api -d saas_api"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      SAAS_API_APP_NAME: multi-tenant-saas-api
+      SAAS_API_APP_VERSION: "0.1.0"
+      SAAS_API_ENVIRONMENT: ci
+      SAAS_API_LOG_LEVEL: INFO
+      SAAS_API_DOCS_ENABLED: "false"
+      SAAS_API_DATABASE_URL: postgresql+asyncpg://saas_api:local-placeholder-postgres-password@localhost:5432/saas_api
+      SAAS_API_JWT_SECRET: local-placeholder-jwt-secret-not-for-production
+      SAAS_API_JWT_ISSUER: multi-tenant-saas-api-ci
+      SAAS_API_ACCESS_TOKEN_TTL_SECONDS: "900"
+      SAAS_API_PASSWORD_MIN_LENGTH: "12"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Shell syntax checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          for script in scripts/*.sh; do
+            [[ -e "$script" ]] || continue
+            bash -n "$script"
+          done
+
+      - name: Install dependencies
+        run: uv sync --locked --all-groups
+
+      - name: Optional automation guardrails
+        shell: bash
+        run: |
+          set -euo pipefail
+          for script in \
+            scripts/check-public-safety.sh \
+            scripts/check-architecture-boundaries.sh \
+            scripts/check-secret-leakage.sh; do
+            if [[ -f "$script" ]]; then
+              bash "$script"
+            fi
+          done
+
+      - name: Ruff check
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+      - name: mypy
+        run: uv run mypy src tests
+
+      - name: Docker Compose config validation
+        run: docker compose config >/dev/null
+
+      - name: Alembic migration upgrade
+        run: uv run alembic upgrade head
+
+      - name: Pytest with coverage
+        run: uv run pytest --cov=multi_tenant_saas_api --cov-report=term-missing
