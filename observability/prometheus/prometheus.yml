@@ -1,0 +1,17 @@
+# Local-only Prometheus configuration for the Docker Compose demo stack.
+# The target name `api:8000` resolves on the Compose network; do not use this as
+# a production monitoring baseline.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: multi-tenant-saas-api
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - api:8000
+        labels:
+          service: multi-tenant-saas-api
+          environment: local

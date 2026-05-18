@@ -1,0 +1,14 @@
+# Local-only Grafana dashboard provisioning for the Docker Compose demo stack.
+apiVersion: 1
+
+providers:
+  - name: Multi-Tenant SaaS API
+    orgId: 1
+    folder: Portfolio SaaS API
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

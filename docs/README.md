@@ -8,8 +8,8 @@ The repository includes a local-only Docker Compose stack for demo exploration. 
 
 - `api`: the FastAPI app image built from the repository Dockerfile, running as a non-root runtime user.
 - `postgres`: local PostgreSQL with public-safe placeholder credentials.
-- `prometheus`: a Prometheus container exposed for local observability work.
-- `grafana`: a Grafana container exposed for local dashboard work.
+- `prometheus`: a Prometheus container that scrapes the API metrics endpoint through the Compose network.
+- `grafana`: a Grafana container with a provisioned Prometheus datasource and a basic API dashboard.
 
 The API service waits for PostgreSQL, runs `alembic upgrade head`, and then starts Uvicorn. The Dockerfile includes a `/healthz` container health check. These settings are only for local portfolio demos; production deployments need real secret management, TLS, hardened runtime policies, backups, and alerting.
 
@@ -105,7 +105,22 @@ Primary metric families:
 - `saas_api_idempotency_replays_total`
 - `saas_api_idempotency_conflicts_total`
 
-The local Compose stack now starts Prometheus and Grafana containers. Custom Prometheus scrape configuration, Grafana provisioning, and dashboards are intentionally deferred to the dedicated observability configuration ticket.
+The local Compose stack starts Prometheus and Grafana containers with repository-owned configuration:
+
+- Prometheus config: `observability/prometheus/prometheus.yml`
+- Grafana datasource provisioning: `observability/grafana/provisioning/datasources/prometheus.yml`
+- Grafana dashboard provisioning: `observability/grafana/provisioning/dashboards/dashboards.yml`
+- Grafana dashboard JSON: `observability/grafana/dashboards/saas-api-overview.json`
+
+Local observability URLs when `docker compose up --build` is running:
+
+- API metrics: <http://localhost:8000/metrics>
+- Prometheus UI: <http://localhost:9090>
+- Prometheus target health: <http://localhost:9090/targets>
+- Grafana UI: <http://localhost:3000> (`admin` / `local-placeholder-grafana-password`)
+- Grafana dashboard: **Dashboards** → **Portfolio SaaS API** → **Multi-Tenant SaaS API Overview**
+
+The committed Grafana login values are local placeholders only. Production systems need managed secrets, authenticated dashboards, alerting rules, retention/storage planning, and reviewed network exposure.
 
 ## Idempotency
 

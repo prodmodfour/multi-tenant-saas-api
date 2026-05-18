@@ -60,6 +60,7 @@ skip_covered = true
 line-length = 100
 src = ["src", "tests"]
 target-version = "py312"
+extend-exclude = ["observability/grafana/dashboards/*.json"]
 
 [tool.ruff.lint]
 select = ["B", "E", "F", "I", "SIM", "UP"]

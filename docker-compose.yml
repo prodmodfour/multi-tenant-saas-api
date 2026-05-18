@@ -52,6 +52,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
 
   grafana:
@@ -65,6 +66,8 @@ services:
     ports:
       - "3000:3000"
     volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana_data:/var/lib/grafana
 
 volumes:

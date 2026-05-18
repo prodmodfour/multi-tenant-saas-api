@@ -2,7 +2,7 @@
 
 ## Current state
 
-Tickets 000 through 016 are complete. The repository has a Python 3.12 `src/` layout, FastAPI app shell, environment-backed settings, structured JSON logging, request ID propagation, health/readiness/metrics endpoints, async SQLAlchemy persistence, Alembic migrations, repository layer, local demo auth, RBAC/tenant context, organisation APIs, membership management, tenant-scoped project APIs, organisation API key management, API key project authentication, an audit log API, idempotency support for selected unsafe creation endpoints, Prometheus metrics instrumentation, and a local Docker Compose stack.
+Tickets 000 through 017 are complete. The repository has a Python 3.12 `src/` layout, FastAPI app shell, environment-backed settings, structured JSON logging, request ID propagation, health/readiness/metrics endpoints, async SQLAlchemy persistence, Alembic migrations, repository layer, local demo auth, RBAC/tenant context, organisation APIs, membership management, tenant-scoped project APIs, organisation API key management, API key project authentication, an audit log API, idempotency support for selected unsafe creation endpoints, Prometheus metrics instrumentation, a local Docker Compose stack, and local Prometheus/Grafana observability configuration.
 
 Implemented application behaviour currently includes:
 
@@ -19,6 +19,9 @@ Implemented application behaviour currently includes:
 - Dockerfile using Python 3.12, uv-based dependency installation, a non-root runtime user, Uvicorn, and a `/healthz` container health check
 - `docker-compose.yml` local demo stack with `api`, `postgres`, `prometheus`, and `grafana` services using public-safe placeholder configuration
 - Compose API startup that waits for PostgreSQL, runs `alembic upgrade head`, and then starts Uvicorn for local demo convenience
+- Prometheus scrape configuration at `observability/prometheus/prometheus.yml` for the Compose API target `api:8000/metrics`
+- Grafana provisioning for a Prometheus datasource and file-loaded dashboard under `observability/grafana/`
+- basic Grafana dashboard JSON for API request rate, latency percentiles, auth attempts, domain workflow counters, idempotency outcomes, and audit events
 - `POST /auth/register` for local demo user registration with hashed password persistence only
 - `POST /auth/login` for local demo bearer-token login
 - auth attempt metrics for registration/login success and failure outcomes
@@ -71,7 +74,7 @@ Implemented domain/schema/persistence contracts currently include:
 - service-layer DTOs for public auth, organisation, membership, project, API key, audit, RBAC, readiness, and idempotency workflows
 - secret-field rejection for idempotency response snapshots so obvious password, bearer-token, raw-key, and key-hash fields are not persisted for replay
 
-CI is not implemented yet. Prometheus scrape configuration, Grafana provisioning, and dashboard JSON are deferred to the next observability configuration ticket.
+CI is not implemented yet.
 
 ## Quality gates
 
@@ -82,7 +85,7 @@ Ran `scripts/quality-gate.sh` successfully. The gate completed:
 - Ruff check
 - Ruff format check
 - mypy strict checks for `src` and `tests`
-- pytest with coverage (`107 passed`)
+- pytest with coverage (`111 passed`)
 - Docker Compose config validation
 
 ## Public-safety notes
@@ -103,31 +106,34 @@ The committed `example.env` and `docker-compose.yml` use local placeholder value
 
 ## Latest cycle notes
 
-Implemented Ticket 016:
+Implemented Ticket 017:
 
-- added `uvicorn` as a runtime application dependency so the container image can run the ASGI app directly
-- added a multi-stage `Dockerfile` using Python 3.12, uv locked dependency installation, a non-root `app` runtime user, Uvicorn, and a `/healthz` container health check
-- added `.dockerignore` to keep local virtual environments, caches, Git metadata, and untracked environment files out of the Docker build context
-- added `docker-compose.yml` with local `api`, `postgres`, `prometheus`, and `grafana` services
-- configured Compose with public-safe placeholder database, JWT, and Grafana values only
-- configured the API Compose service to wait for healthy PostgreSQL, run `alembic upgrade head`, and start Uvicorn for local demo convenience
-- added static tests for the Dockerfile, Docker ignore patterns, and required Compose services/placeholders
-- updated README and docs/README with Docker Compose quick-start and local runtime notes
+- added `observability/prometheus/prometheus.yml` with a local scrape job for the API metrics endpoint at `api:8000/metrics`
+- mounted the Prometheus scrape configuration into the Compose `prometheus` service read-only
+- added Grafana datasource provisioning for the local Prometheus service with the stable datasource UID `prometheus`
+- added Grafana dashboard provisioning for file-loaded dashboards in the local Compose stack
+- added `observability/grafana/dashboards/saas-api-overview.json` with panels for request rate, latency percentiles, auth attempts, domain workflow counters, idempotency outcomes, and audit events
+- mounted Grafana provisioning and dashboard directories into the Compose `grafana` service read-only
+- added static tests for Prometheus configuration, Grafana provisioning, dashboard JSON, expected metric queries, and Compose mounts
+- updated README and docs/README with local observability URLs, target-health guidance, dashboard location, and local-only limitations
+- excluded Grafana dashboard JSON from Ruff formatting so the committed dashboard remains strict JSON for Grafana and test parsing
 
 Quality gates run:
 
+- `python3 -m json.tool observability/grafana/dashboards/saas-api-overview.json` completed successfully
 - `docker compose config` completed successfully before the full gate
-- `docker build -t multi-tenant-saas-api:ticket-016 .` completed successfully
+- targeted checks completed successfully: `uv run ruff format --check .`, `uv run ruff check .`, `uv run mypy src tests`, and `uv run pytest tests/test_observability_config.py`
 - `scripts/quality-gate.sh` completed successfully after implementation
-- gate covered shell syntax checks, `uv sync --locked --all-groups`, Ruff check, Ruff format check, mypy strict checks, pytest with coverage (`107 passed`), and Docker Compose config validation
+- gate covered shell syntax checks, `uv sync --locked --all-groups`, Ruff check, Ruff format check, mypy strict checks, pytest with coverage (`111 passed`), and Docker Compose config validation
 
 Limitations:
 
 - CI is not implemented yet.
-- Prometheus currently runs as a local Compose service without custom API scrape configuration; scrape configuration is deferred to Ticket 017.
-- Grafana currently runs as a local Compose service without provisioning or dashboards; provisioning and dashboard JSON are deferred to Ticket 017.
-- Compose credentials and JWT settings are local placeholders only and are not suitable for production.
+- Prometheus and Grafana configuration is local-demo oriented only and is not a production observability baseline.
+- Grafana uses committed local placeholder admin credentials; production deployments need managed secrets and authenticated dashboard access.
+- The dashboard is intentionally basic and does not include alert rules, SLOs, retention configuration, or long-term storage.
 - Metrics are process-local; multi-process deployment aggregation and long-term retention would require production observability infrastructure.
+- Compose credentials and JWT settings are local placeholders only and are not suitable for production.
 - API keys currently have fixed project read/write capability for their owning organisation; fine-grained API key scopes are not implemented.
 - Idempotency expiry cleanup and simultaneous first-request concurrency hardening are not implemented; production systems should use transactional first-writer handling and operational cleanup.
 - API key hashes use deterministic SHA-256 over high-entropy generated keys for demo lookup; production systems may add a dedicated secret pepper or managed key service.
@@ -135,4 +141,4 @@ Limitations:
 
 ## Next recommended ticket
 
-Ticket 017.
+Ticket 018.

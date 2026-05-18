@@ -68,9 +68,11 @@ The project currently includes the repository skeleton, FastAPI application shel
 - Prometheus metrics for HTTP requests, request duration, auth attempts, created organisations/projects/API keys, revoked API keys, audit events, and idempotency replay/conflict outcomes
 - Dockerfile with a non-root runtime user and container health check
 - Docker Compose stack for local API, PostgreSQL, Prometheus, and Grafana services
+- local Prometheus scrape configuration for the API metrics endpoint
+- Grafana provisioning for the Prometheus datasource and a basic SaaS API overview dashboard
 - documentation and decisions directories
 
-CI is intentionally not implemented yet; it will be added by a later build ticket. Prometheus scrape configuration and Grafana dashboards are also deferred to the dedicated observability configuration ticket. The RBAC services are wired into the organisation, membership, project, API key, audit, idempotency-aware, and metrics APIs and remain available for future tenant-scoped routes.
+CI is intentionally not implemented yet; it will be added by a later build ticket. The RBAC services are wired into the organisation, membership, project, API key, audit, idempotency-aware, and metrics APIs and remain available for future tenant-scoped routes.
 
 ## Requirements
 
@@ -118,7 +120,9 @@ Useful local URLs:
 - Readiness: <http://localhost:8000/readyz>
 - Metrics: <http://localhost:8000/metrics>
 - Prometheus: <http://localhost:9090>
+- Prometheus API target status: <http://localhost:9090/targets>
 - Grafana: <http://localhost:3000> (`admin` / `local-placeholder-grafana-password`)
+- Grafana dashboard: browse to **Dashboards** → **Portfolio SaaS API** → **Multi-Tenant SaaS API Overview**
 
 Shut down the stack with:
 
@@ -229,7 +233,17 @@ Implemented metric families:
 - `saas_api_idempotency_replays_total`
 - `saas_api_idempotency_conflicts_total`
 
-The Docker Compose stack includes Prometheus and Grafana containers for local exploration. Custom Prometheus scrape configuration, Grafana provisioning, and dashboards are intentionally deferred to the dedicated observability configuration ticket.
+The Docker Compose stack includes Prometheus and Grafana containers for local exploration. Prometheus uses `observability/prometheus/prometheus.yml` to scrape the API container at `api:8000/metrics` every 15 seconds. Grafana uses provisioning files under `observability/grafana/provisioning/` to create a Prometheus datasource and load the `observability/grafana/dashboards/saas-api-overview.json` dashboard.
+
+Local observability URLs when Compose is running:
+
+- API metrics: <http://localhost:8000/metrics>
+- Prometheus UI: <http://localhost:9090>
+- Prometheus target health: <http://localhost:9090/targets>
+- Grafana UI: <http://localhost:3000> (`admin` / `local-placeholder-grafana-password`)
+- Grafana dashboard: **Dashboards** → **Portfolio SaaS API** → **Multi-Tenant SaaS API Overview**
+
+These observability settings are local demo defaults only. Production deployments need authenticated dashboards, managed secrets, alerting rules, retention planning, and reviewed scrape topology.
 
 ## Role model and tenant access policy
 
