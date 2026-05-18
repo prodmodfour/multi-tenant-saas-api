@@ -3,9 +3,8 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from multi_tenant_saas_api.dependencies import get_auth_api_service
+from multi_tenant_saas_api.dependencies import get_auth_api_service, require_bearer_token
 from multi_tenant_saas_api.schemas.auth import (
     CurrentUserResponse,
     LoginRequest,
@@ -25,8 +24,6 @@ from multi_tenant_saas_api.services.auth_api import (
     InvalidCredentialsError,
     PublicUser,
 )
-
-_BEARER_SCHEME = HTTPBearer(auto_error=False)
 
 
 def create_auth_router() -> APIRouter:
@@ -99,7 +96,7 @@ def create_auth_router() -> APIRouter:
         summary="Get the current authenticated user",
     )
     async def get_me(
-        bearer_token: Annotated[str, Depends(_require_bearer_token)],
+        bearer_token: Annotated[str, Depends(require_bearer_token)],
         auth_service: Annotated[AuthAPIService, Depends(get_auth_api_service)],
     ) -> CurrentUserResponse:
         """Return the current user and organisation memberships."""
@@ -112,16 +109,6 @@ def create_auth_router() -> APIRouter:
         return _current_user_response(current_user)
 
     return router
-
-
-def _require_bearer_token(
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_BEARER_SCHEME)],
-) -> str:
-    """Extract a bearer token string without validating the token in the route layer."""
-
-    if credentials is None or credentials.scheme.lower() != "bearer" or not credentials.credentials:
-        raise _unauthorized("authentication required")
-    return credentials.credentials
 
 
 def _unauthorized(detail: str) -> HTTPException:

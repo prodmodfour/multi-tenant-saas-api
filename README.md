@@ -51,6 +51,7 @@ The project currently includes the repository skeleton, a minimal FastAPI applic
 - Alembic configuration and an initial PostgreSQL migration
 - repository classes for users, organisations, memberships, projects, API keys, audit events, and idempotency records
 - tenant-scoped repository methods for organisation membership lists, project access, API key management, audit event reads, and idempotency lookups
+- RBAC and tenant-context services for current-principal resolution, membership lookup, permission checks, and last-owner protection
 - password policy checks plus Argon2id password hashing and verification utilities
 - signed bearer access token creation/validation utilities and a typed authenticated principal model
 - request-scoped database session dependency wiring for API workflows
@@ -59,7 +60,7 @@ The project currently includes the repository skeleton, a minimal FastAPI applic
 - successful registration/login audit event writes with secret-safe metadata
 - documentation and decisions directories
 
-RBAC enforcement, tenant isolation for organisation/project APIs, broader audit integration, idempotency replay behaviour, readiness checks, metrics, Docker, and CI are intentionally not implemented yet; they will be added by later build tickets.
+Organisation/project/member/API-key routes, broader audit integration, idempotency replay behaviour, readiness checks, metrics, Docker, and CI are intentionally not implemented yet; they will be added by later build tickets. The RBAC services are now available for those future business routes, but most tenant-scoped API endpoints are not wired yet.
 
 ## Requirements
 
@@ -123,15 +124,28 @@ Auth endpoints:
 
 Password hashes and raw passwords are never returned by these endpoints. Registration and successful login create nullable-organisation audit events with empty, secret-safe metadata.
 
+## Role model and tenant access policy
+
+Organisations are the tenant boundary. Business workflows must resolve a current authenticated principal, load the user's membership for the target organisation, and enforce permissions before accessing tenant-owned data.
+
+| Role | Permissions |
+| --- | --- |
+| `owner` | Manage organisation, manage members, manage API keys, read/write projects, read audit events. |
+| `admin` | Update organisation metadata, manage members, manage API keys, read/write projects, read audit events. |
+| `member` | Read organisation metadata and read/write projects. |
+| `viewer` | Read organisation metadata and read projects only. |
+
+The RBAC service resolves bearer tokens into secret-safe current principals, builds tenant contexts from organisation memberships, raises explicit not-found/access-denied/permission-denied errors, and protects the invariant that an organisation must always have at least one owner. Future tenant-scoped routes must use these services instead of performing permission checks in route handlers.
+
 ## Domain, schema, and persistence contracts
 
-The current domain layer defines organisation roles (`owner`, `admin`, `member`, `viewer`), service-level permissions, project statuses, and audit action names. The Pydantic schemas define the API data contracts, while service workflows own registration, login, and current-user business logic for the implemented auth endpoints.
+The current domain layer defines organisation roles (`owner`, `admin`, `member`, `viewer`), service-level permissions, project statuses, and audit action names. The Pydantic schemas define the API data contracts, while service workflows own registration, login, current-user business logic, and RBAC/tenant-context checks for implemented or upcoming protected endpoints.
 
 Password fields use secret-safe request types, response schemas do not include password hashes, and API key metadata schemas do not include raw keys or key hashes. The password utility enforces a configurable local policy and hashes new passwords with pwdlib's recommended Argon2id hasher before persistence. The bearer-token utility signs short-lived local demo access tokens and validates them into an authenticated user principal for `GET /me`. Production systems need real secret management, TLS, token/key rotation, monitoring, and hardened identity review.
 
 The database model stores `password_hash` and `key_hash` fields only; raw API key material is represented only by the intentional one-time API key creation response schema.
 
-Repository classes live under `multi_tenant_saas_api.repositories` and own SQLAlchemy statement construction for business persistence operations. Future service and route layers should call these repositories rather than querying ORM models directly. Repository methods that access tenant-owned business data require an organisation scope or a user-membership scope where applicable; RBAC decisions remain a future service-layer responsibility.
+Repository classes live under `multi_tenant_saas_api.repositories` and own SQLAlchemy statement construction for business persistence operations. Service and route layers should call these repositories rather than querying ORM models directly. Repository methods that access tenant-owned business data require an organisation scope or a user-membership scope where applicable; RBAC decisions are handled by service-layer tenant contexts.
 
 The initial PostgreSQL schema is managed by Alembic:
 

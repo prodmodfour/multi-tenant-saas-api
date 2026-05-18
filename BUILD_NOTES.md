@@ -2,7 +2,7 @@
 
 ## Current state
 
-Tickets 000, 001, 002, 003, 004, 005, and 006 are complete. The repository now has the initial Python 3.12 `src/` layout, packaging configuration, documentation placeholders, local placeholder configuration, a Makefile, a basic import test, a FastAPI application shell, the first domain/schema contracts, the initial PostgreSQL persistence foundation, a repository layer that owns SQLAlchemy business data access, authentication utility services, and auth API routes for the local demo identity workflow.
+Tickets 000 through 007 are complete. The repository now has the initial Python 3.12 `src/` layout, packaging configuration, documentation placeholders, local placeholder configuration, a Makefile, a basic import test, a FastAPI application shell, the first domain/schema contracts, the initial PostgreSQL persistence foundation, a repository layer that owns SQLAlchemy business data access, authentication utility services, auth API routes for the local demo identity workflow, and RBAC/tenant-context services for protected business workflows.
 
 Implemented application behaviour currently includes:
 
@@ -17,6 +17,9 @@ Implemented application behaviour currently includes:
 - `POST /auth/login` for local demo bearer-token login
 - `GET /me` for current active user and membership summaries
 - successful registration/login audit events with nullable organisation ID and empty secret-safe metadata
+- current-principal resolution from bearer tokens into secret-safe principal DTOs
+- RBAC tenant-context creation with organisation lookup, membership lookup, role permissions, and explicit not-found/access-denied/permission-denied service errors
+- last-owner protection helper for future member removal/downgrade workflows
 
 Implemented domain/schema/persistence contracts currently include:
 
@@ -34,9 +37,10 @@ Implemented domain/schema/persistence contracts currently include:
 - password policy checks backed by `SAAS_API_PASSWORD_MIN_LENGTH`
 - password hashing and verification utilities using pwdlib's recommended Argon2id hasher
 - bearer access token creation/validation utilities using a local placeholder JWT signing secret setting
-- a typed authenticated user principal model used by `GET /me`
+- a typed authenticated user principal model used by token validation
+- RBAC service DTOs for `CurrentPrincipal` and `TenantContext`
 
-RBAC enforcement, tenant isolation at service/API level beyond current-user membership scoping, organisation/project/member/API-key routes, broader audit logging integration, idempotency replay behaviour, readiness checks, metrics, Docker, and CI are not implemented yet.
+Organisation/project/member/API-key routes, broader audit logging integration, idempotency replay behaviour, readiness checks, metrics, Docker, and CI are not implemented yet.
 
 ## Quality gates
 
@@ -67,26 +71,24 @@ The committed `example.env` uses local placeholder values only and is not suitab
 
 ## Latest cycle notes
 
-Implemented Ticket 006:
+Implemented Ticket 007:
 
-- added `multi_tenant_saas_api.services.auth_api` for registration, login, and current-user workflows behind a service layer
-- added FastAPI dependency helpers for app settings, request-scoped database sessions, and auth workflow service construction
-- wired the app factory to create an async SQLAlchemy engine/session factory and dispose the engine on lifespan shutdown
-- added auth routes for `POST /auth/register`, `POST /auth/login`, and `GET /me`
-- registration now normalises email addresses, rejects duplicates, hashes passwords before persistence, commits the unit of work, and emits a secret-safe `user.registered` audit event
-- login now returns a bearer token for valid credentials, uses one generic safe error for unknown email/wrong password/inactive user, commits the audit unit of work, and emits a secret-safe `user.logged_in` audit event
-- `GET /me` validates bearer access tokens and returns the active user plus organisation membership summaries without exposing password hashes
-- added API tests covering registration, duplicate email rejection, password hash storage, login success, generic login failures, current-user responses, and bearer-token failures
-- updated README API surface and current status
+- added `multi_tenant_saas_api.services.rbac` with `PrincipalResolverService`, `RBACService`, secret-safe `CurrentPrincipal`, and `TenantContext`
+- added current-principal resolution that validates bearer access tokens, loads active users through the repository layer, and collapses invalid/expired/missing/inactive users into a safe authentication error
+- added tenant-context lookup that loads organisations and memberships through repositories, grants immutable role permissions, and raises explicit organisation-not-found, tenant-access-denied, and permission-denied service errors
+- added service-level last-owner protection for member removals or role changes away from `owner`
+- added FastAPI dependency helpers for shared bearer-token extraction, RBAC service construction, and current-principal resolution for future protected routes
+- refactored `GET /me` internals to reuse the principal resolver while preserving safe bearer-token failure behaviour and avoiding password-hash exposure
+- documented the role model and tenant access policy in `README.md` and `docs/README.md`
+- added service tests covering current-principal resolution, owner/admin/member/viewer permission behaviour, unknown organisations, non-member rejection, and last-owner protection
 
 Limitations:
 
-- RBAC and tenant-context services are not implemented yet; future organisation/project/member routes must add explicit permission checks
-- organisation creation and membership management routes are not implemented yet, so `GET /me` only reports memberships already present in persistence
-- token validation currently supports user bearer tokens only; API key authentication remains a future ticket
-- the committed JWT secret is a local placeholder only and is not suitable for production
-- authentication audit events currently use empty metadata to avoid accidental secret or private-data leakage
+- Tenant-scoped organisation, membership, project, API-key, and audit routes are not implemented yet, so the new RBAC services are groundwork for future tickets rather than broadly exposed API behaviour.
+- API key authentication remains a future ticket; current-principal resolution supports user bearer tokens only.
+- The committed JWT secret is a local placeholder only and is not suitable for production.
+- Authentication audit events currently use empty metadata to avoid accidental secret or private-data leakage.
 
 ## Next recommended ticket
 
-Ticket 007.
+Ticket 008.

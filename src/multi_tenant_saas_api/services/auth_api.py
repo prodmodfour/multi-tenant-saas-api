@@ -32,11 +32,10 @@ from multi_tenant_saas_api.repositories import (
 )
 from multi_tenant_saas_api.services.auth import (
     AccessToken,
-    AccessTokenError,
     AccessTokenService,
     PasswordHashingService,
-    PrincipalType,
 )
+from multi_tenant_saas_api.services.rbac import PrincipalResolutionError, PrincipalResolverService
 
 
 class AuthAPIServiceError(ValueError):
@@ -94,6 +93,7 @@ class AuthAPIService:
         "_memberships",
         "_organisations",
         "_passwords",
+        "_principals",
         "_session",
         "_tokens",
         "_users",
@@ -109,6 +109,7 @@ class AuthAPIService:
         membership_repository: MembershipRepository | None = None,
         organisation_repository: OrganisationRepository | None = None,
         audit_event_repository: AuditEventRepository | None = None,
+        principal_resolver: PrincipalResolverService | None = None,
     ) -> None:
         """Initialise authentication workflows with repositories and utilities."""
 
@@ -119,6 +120,10 @@ class AuthAPIService:
         self._memberships = membership_repository or MembershipRepository(session)
         self._organisations = organisation_repository or OrganisationRepository(session)
         self._audit_events = audit_event_repository or AuditEventRepository(session)
+        self._principals = principal_resolver or PrincipalResolverService(
+            token_service=token_service,
+            user_repository=self._users,
+        )
 
     async def register_user(
         self,
@@ -200,18 +205,11 @@ class AuthAPIService:
         """Resolve a bearer token into the current active user and memberships."""
 
         try:
-            principal = self._tokens.validate_access_token(bearer_token)
-        except AccessTokenError as exc:
+            principal = await self._principals.resolve_user_principal(bearer_token=bearer_token)
+        except PrincipalResolutionError as exc:
             raise InvalidBearerTokenError("invalid or expired access token") from exc
 
-        if principal.principal_type is not PrincipalType.USER:
-            raise InvalidBearerTokenError("invalid or expired access token")
-
-        user = await self._users.get_by_id(_uuid_from_user_id(principal.user_id))
-        if user is None or not user.is_active:
-            raise InvalidBearerTokenError("invalid or expired access token")
-
-        memberships = await self._memberships.list_for_user(user.id)
+        memberships = await self._memberships.list_for_user(_uuid_from_user_id(principal.user_id))
         current_user_memberships: list[CurrentUserMembership] = []
         for membership in memberships:
             organisation = await self._organisations.get_by_id(membership.organisation_id)
@@ -222,7 +220,14 @@ class AuthAPIService:
             )
 
         return CurrentUser(
-            user=_public_user_from_model(user),
+            user=PublicUser(
+                id=principal.user_id,
+                email=principal.email,
+                display_name=principal.display_name,
+                is_active=principal.is_active,
+                created_at=principal.created_at,
+                updated_at=principal.updated_at,
+            ),
             memberships=current_user_memberships,
         )
 

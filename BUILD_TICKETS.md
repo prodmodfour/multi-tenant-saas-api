@@ -351,7 +351,7 @@ Commit when complete.
 
 ## 007 — Add RBAC and tenant context services
 
-Status: TODO
+Status: DONE
 
 Implement:
 
