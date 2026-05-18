@@ -25,11 +25,8 @@ from multi_tenant_saas_api.domain import (
     Permission,
     UserID,
 )
-from multi_tenant_saas_api.repositories import (
-    AuditEventRepository,
-    MembershipRepository,
-    OrganisationRepository,
-)
+from multi_tenant_saas_api.repositories import MembershipRepository, OrganisationRepository
+from multi_tenant_saas_api.services.audit import AuditService
 from multi_tenant_saas_api.services.rbac import (
     CurrentPrincipal,
     OrganisationNotFoundError,
@@ -91,7 +88,7 @@ class CreatedOrganisation:
 class OrganisationAPIService:
     """Service layer for organisation tenant endpoints."""
 
-    __slots__ = ("_audit_events", "_memberships", "_organisations", "_rbac", "_session")
+    __slots__ = ("_audit", "_memberships", "_organisations", "_rbac", "_session")
 
     def __init__(
         self,
@@ -100,7 +97,7 @@ class OrganisationAPIService:
         rbac_service: RBACService,
         organisation_repository: OrganisationRepository | None = None,
         membership_repository: MembershipRepository | None = None,
-        audit_event_repository: AuditEventRepository | None = None,
+        audit_service: AuditService | None = None,
     ) -> None:
         """Initialise organisation workflows with repository collaborators."""
 
@@ -108,7 +105,7 @@ class OrganisationAPIService:
         self._rbac = rbac_service
         self._organisations = organisation_repository or OrganisationRepository(session)
         self._memberships = membership_repository or MembershipRepository(session)
-        self._audit_events = audit_event_repository or AuditEventRepository(session)
+        self._audit = audit_service or AuditService(session=session)
 
     async def create_organisation(
         self,
@@ -131,13 +128,13 @@ class OrganisationAPIService:
                 user_id=_uuid_from_user_id(principal.user_id),
                 role=OrganisationRole.OWNER,
             )
-            await self._audit_events.create(
+            await self._audit.record_event(
                 action=AuditAction.ORGANISATION_CREATED,
                 organisation_id=organisation.id,
                 actor_user_id=_uuid_from_user_id(principal.user_id),
                 target_type="organisation",
                 target_id=organisation.id,
-                event_metadata={},
+                metadata={},
             )
             await self._session.commit()
         except IntegrityError as exc:
@@ -238,13 +235,13 @@ class OrganisationAPIService:
                 name=name,
                 slug=requested_slug,
             )
-            await self._audit_events.create(
+            await self._audit.record_event(
                 action=AuditAction.ORGANISATION_UPDATED,
                 organisation_id=updated_organisation.id,
                 actor_user_id=_uuid_from_user_id(principal.user_id),
                 target_type="organisation",
                 target_id=updated_organisation.id,
-                event_metadata={"changed_fields": changed_fields},
+                metadata={"changed_fields": changed_fields},
             )
             await self._session.commit()
         except IntegrityError as exc:

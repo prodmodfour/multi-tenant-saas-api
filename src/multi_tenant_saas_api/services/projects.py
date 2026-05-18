@@ -26,8 +26,9 @@ from multi_tenant_saas_api.domain import (
     SortDirection,
     UserID,
 )
-from multi_tenant_saas_api.repositories import AuditEventRepository, ProjectRepository
+from multi_tenant_saas_api.repositories import ProjectRepository
 from multi_tenant_saas_api.services.api_keys import APIKeyPrincipal, ProjectPrincipal
+from multi_tenant_saas_api.services.audit import AuditService
 from multi_tenant_saas_api.services.rbac import (
     CurrentPrincipal,
     RBACService,
@@ -74,7 +75,7 @@ _API_KEY_PROJECT_PERMISSIONS = frozenset({Permission.READ_PROJECTS, Permission.W
 class ProjectAPIService:
     """Service layer for organisation-scoped project endpoints."""
 
-    __slots__ = ("_audit_events", "_projects", "_rbac", "_session")
+    __slots__ = ("_audit", "_projects", "_rbac", "_session")
 
     def __init__(
         self,
@@ -82,14 +83,14 @@ class ProjectAPIService:
         session: AsyncSession,
         rbac_service: RBACService,
         project_repository: ProjectRepository | None = None,
-        audit_event_repository: AuditEventRepository | None = None,
+        audit_service: AuditService | None = None,
     ) -> None:
         """Initialise project workflows with repository collaborators."""
 
         self._session = session
         self._rbac = rbac_service
         self._projects = project_repository or ProjectRepository(session)
-        self._audit_events = audit_event_repository or AuditEventRepository(session)
+        self._audit = audit_service or AuditService(session=session)
 
     async def create_project(
         self,
@@ -119,14 +120,14 @@ class ProjectAPIService:
                 description=description,
                 created_by_user_id=actor_user_id,
             )
-            await self._audit_events.create(
+            await self._audit.record_event(
                 action=AuditAction.PROJECT_CREATED,
                 organisation_id=organisation_uuid,
                 actor_user_id=actor_user_id,
                 actor_api_key_id=actor_api_key_id,
                 target_type="project",
                 target_id=project.id,
-                event_metadata={"project_name": project.name, "status": project.status.value},
+                metadata={"project_name": project.name, "status": project.status.value},
             )
             await self._session.commit()
         except Exception:
@@ -237,14 +238,14 @@ class ProjectAPIService:
                     status=status,
                     updated_by_user_id=actor_user_id,
                 )
-            await self._audit_events.create(
+            await self._audit.record_event(
                 action=AuditAction.PROJECT_UPDATED,
                 organisation_id=organisation_uuid,
                 actor_user_id=actor_user_id,
                 actor_api_key_id=actor_api_key_id,
                 target_type="project",
                 target_id=updated_project.id,
-                event_metadata={"changed_fields": changed_fields},
+                metadata={"changed_fields": changed_fields},
             )
             await self._session.commit()
         except Exception:
@@ -278,14 +279,14 @@ class ProjectAPIService:
                 project,
                 updated_by_user_id=actor_user_id,
             )
-            await self._audit_events.create(
+            await self._audit.record_event(
                 action=AuditAction.PROJECT_DELETED,
                 organisation_id=organisation_uuid,
                 actor_user_id=actor_user_id,
                 actor_api_key_id=actor_api_key_id,
                 target_type="project",
                 target_id=deleted_project.id,
-                event_metadata={"project_name": project_name},
+                metadata={"project_name": project_name},
             )
             await self._session.commit()
         except Exception:

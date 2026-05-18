@@ -18,7 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from multi_tenant_saas_api.database import APIKey
 from multi_tenant_saas_api.domain import APIKeyID, AuditAction, OrganisationID, Permission, UserID
-from multi_tenant_saas_api.repositories import APIKeyRepository, AuditEventRepository
+from multi_tenant_saas_api.repositories import APIKeyRepository
+from multi_tenant_saas_api.services.audit import AuditService
 from multi_tenant_saas_api.services.auth import PrincipalType
 from multi_tenant_saas_api.services.rbac import (
     CurrentPrincipal,
@@ -131,7 +132,7 @@ class APIKeySecretService:
 class APIKeyAPIService:
     """Service layer for organisation-scoped API key management endpoints."""
 
-    __slots__ = ("_api_keys", "_audit_events", "_key_secrets", "_rbac", "_session")
+    __slots__ = ("_api_keys", "_audit", "_key_secrets", "_rbac", "_session")
 
     def __init__(
         self,
@@ -139,7 +140,7 @@ class APIKeyAPIService:
         session: AsyncSession,
         rbac_service: RBACService,
         api_key_repository: APIKeyRepository | None = None,
-        audit_event_repository: AuditEventRepository | None = None,
+        audit_service: AuditService | None = None,
         key_secret_service: APIKeySecretService | None = None,
     ) -> None:
         """Initialise API key workflows with repository collaborators."""
@@ -147,7 +148,7 @@ class APIKeyAPIService:
         self._session = session
         self._rbac = rbac_service
         self._api_keys = api_key_repository or APIKeyRepository(session)
-        self._audit_events = audit_event_repository or AuditEventRepository(session)
+        self._audit = audit_service or AuditService(session=session)
         self._key_secrets = key_secret_service or APIKeySecretService()
 
     async def create_api_key(
@@ -179,13 +180,13 @@ class APIKeyAPIService:
                 key_hash=key_hash,
                 created_by_user_id=actor_user_id,
             )
-            await self._audit_events.create(
+            await self._audit.record_event(
                 action=AuditAction.API_KEY_CREATED,
                 organisation_id=organisation_uuid,
                 actor_user_id=actor_user_id,
                 target_type="api_key",
                 target_id=api_key.id,
-                event_metadata={"api_key_name": api_key.name, "key_prefix": api_key.key_prefix},
+                metadata={"api_key_name": api_key.name, "key_prefix": api_key.key_prefix},
             )
             await self._session.commit()
         except Exception:
@@ -249,13 +250,13 @@ class APIKeyAPIService:
         try:
             if api_key.revoked_at is None:
                 api_key = await self._api_keys.revoke(api_key)
-                await self._audit_events.create(
+                await self._audit.record_event(
                     action=AuditAction.API_KEY_REVOKED,
                     organisation_id=organisation_uuid,
                     actor_user_id=actor_user_id,
                     target_type="api_key",
                     target_id=api_key.id,
-                    event_metadata={
+                    metadata={
                         "api_key_name": api_key.name,
                         "key_prefix": api_key.key_prefix,
                     },

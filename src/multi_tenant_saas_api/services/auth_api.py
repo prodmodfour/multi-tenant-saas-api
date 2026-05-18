@@ -25,11 +25,11 @@ from multi_tenant_saas_api.domain import (
     UserID,
 )
 from multi_tenant_saas_api.repositories import (
-    AuditEventRepository,
     MembershipRepository,
     OrganisationRepository,
     UserRepository,
 )
+from multi_tenant_saas_api.services.audit import AuditService
 from multi_tenant_saas_api.services.auth import (
     AccessToken,
     AccessTokenService,
@@ -89,7 +89,7 @@ class AuthAPIService:
     """Service layer for local email/password authentication endpoints."""
 
     __slots__ = (
-        "_audit_events",
+        "_audit",
         "_memberships",
         "_organisations",
         "_passwords",
@@ -108,7 +108,7 @@ class AuthAPIService:
         user_repository: UserRepository | None = None,
         membership_repository: MembershipRepository | None = None,
         organisation_repository: OrganisationRepository | None = None,
-        audit_event_repository: AuditEventRepository | None = None,
+        audit_service: AuditService | None = None,
         principal_resolver: PrincipalResolverService | None = None,
     ) -> None:
         """Initialise authentication workflows with repositories and utilities."""
@@ -119,7 +119,7 @@ class AuthAPIService:
         self._users = user_repository or UserRepository(session)
         self._memberships = membership_repository or MembershipRepository(session)
         self._organisations = organisation_repository or OrganisationRepository(session)
-        self._audit_events = audit_event_repository or AuditEventRepository(session)
+        self._audit = audit_service or AuditService(session=session)
         self._principals = principal_resolver or PrincipalResolverService(
             token_service=token_service,
             user_repository=self._users,
@@ -147,12 +147,12 @@ class AuthAPIService:
                 display_name=display_name,
                 password_hash=password_hash,
             )
-            await self._audit_events.create(
+            await self._audit.record_event(
                 action=AuditAction.USER_REGISTERED,
                 actor_user_id=user.id,
                 target_type="user",
                 target_id=user.id,
-                event_metadata={},
+                metadata={},
             )
             await self._session.commit()
         except IntegrityError as exc:
@@ -187,12 +187,12 @@ class AuthAPIService:
         access_token = self._tokens.create_access_token(UserID(user.id))
 
         try:
-            await self._audit_events.create(
+            await self._audit.record_event(
                 action=AuditAction.USER_LOGGED_IN,
                 actor_user_id=user.id,
                 target_type="user",
                 target_id=user.id,
-                event_metadata={},
+                metadata={},
             )
             await self._session.commit()
         except Exception:

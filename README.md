@@ -60,11 +60,11 @@ The project currently includes the repository skeleton, FastAPI application shel
 - membership management service workflows and routes for owner/admin member listing, member add, role update, removal, admin owner-operation restrictions, and last-owner protection
 - project service workflows and routes for tenant-scoped create/read/update/soft-delete operations, pagination, status/name filtering, created_at/name/status sorting, viewer read-only user access, and organisation-scoped API key access
 - API key management workflows and routes for owner/admin key creation, metadata listing, revocation, hashed storage, one-time raw key creation responses, and revoked-key authentication denial
-- `POST /auth/register`, `POST /auth/login`, `GET /me`, `POST /orgs`, `GET /orgs`, `GET /orgs/{org_id}`, `PATCH /orgs/{org_id}`, `GET /orgs/{org_id}/members`, `POST /orgs/{org_id}/members`, `PATCH /orgs/{org_id}/members/{user_id}`, `DELETE /orgs/{org_id}/members/{user_id}`, `POST /orgs/{org_id}/projects`, `GET /orgs/{org_id}/projects`, `GET /orgs/{org_id}/projects/{project_id}`, `PATCH /orgs/{org_id}/projects/{project_id}`, `DELETE /orgs/{org_id}/projects/{project_id}`, `POST /orgs/{org_id}/api-keys`, `GET /orgs/{org_id}/api-keys`, and `DELETE /orgs/{org_id}/api-keys/{api_key_id}`
-- successful registration/login, organisation create/update, member add/update/remove, project create/update/delete, and API key create/revoke audit event writes with secret-safe metadata
+- `POST /auth/register`, `POST /auth/login`, `GET /me`, `POST /orgs`, `GET /orgs`, `GET /orgs/{org_id}`, `PATCH /orgs/{org_id}`, `GET /orgs/{org_id}/members`, `POST /orgs/{org_id}/members`, `PATCH /orgs/{org_id}/members/{user_id}`, `DELETE /orgs/{org_id}/members/{user_id}`, `POST /orgs/{org_id}/projects`, `GET /orgs/{org_id}/projects`, `GET /orgs/{org_id}/projects/{project_id}`, `PATCH /orgs/{org_id}/projects/{project_id}`, `DELETE /orgs/{org_id}/projects/{project_id}`, `POST /orgs/{org_id}/api-keys`, `GET /orgs/{org_id}/api-keys`, `DELETE /orgs/{org_id}/api-keys/{api_key_id}`, and `GET /orgs/{org_id}/audit-events`
+- successful registration/login, organisation create/update, member add/update/remove, project create/update/delete, and API key create/revoke audit event writes through the append-only audit service with secret-safe metadata
 - documentation and decisions directories
 
-Broader audit read integration, idempotency replay behaviour, readiness checks, metrics, Docker, and CI are intentionally not implemented yet; they will be added by later build tickets. The RBAC services are wired into the organisation, membership, project, and API key APIs and remain available for future tenant-scoped routes.
+Idempotency replay behaviour, readiness checks, metrics, Docker, and CI are intentionally not implemented yet; they will be added by later build tickets. The RBAC services are wired into the organisation, membership, project, API key, and audit APIs and remain available for future tenant-scoped routes.
 
 ## Requirements
 
@@ -160,6 +160,12 @@ API key endpoints:
 
 API keys authenticate with `Authorization: Bearer <raw_key>` on project endpoints only. They are scoped to one organisation, cannot access another tenant's projects, cannot manage members, and cannot create/list/revoke API keys. Revoked keys cannot authenticate.
 
+Audit endpoints:
+
+- `GET /orgs/{org_id}/audit-events` — requires tenant membership and `read_audit_events`, so only `owner` and `admin` members can read paginated audit logs. `member`, `viewer`, non-member, and cross-tenant requests are denied before audit rows are listed.
+
+Audit events are append-only at the API/service layer. Metadata is intentionally small and secret-safe; the audit service rejects obvious secret-bearing metadata field names such as raw keys, key hashes, passwords, bearer tokens, and authorization values.
+
 ## Role model and tenant access policy
 
 Organisations are the tenant boundary. User-driven business workflows must resolve a current authenticated principal, load the user's membership for the target organisation, and enforce permissions before accessing tenant-owned data. Project workflows also accept active organisation-scoped API keys and require the key's organisation to match the route tenant.
@@ -175,7 +181,7 @@ The RBAC service resolves bearer tokens into secret-safe current user principals
 
 ## Domain, schema, and persistence contracts
 
-The current domain layer defines organisation roles (`owner`, `admin`, `member`, `viewer`), service-level permissions, project statuses, project sort options, and audit action names. The Pydantic schemas define the API data contracts, while service workflows own registration, login, current-user business logic, organisation tenant workflows, membership management, project workflows, and RBAC/tenant-context checks for implemented or upcoming protected endpoints.
+The current domain layer defines organisation roles (`owner`, `admin`, `member`, `viewer`), service-level permissions, project statuses, project sort options, and audit action names. The Pydantic schemas define the API data contracts, while service workflows own registration, login, current-user business logic, organisation tenant workflows, membership management, project workflows, API key workflows, append-only audit workflows, and RBAC/tenant-context checks for implemented or upcoming protected endpoints.
 
 Password fields use secret-safe request types, response schemas do not include password hashes, and API key metadata schemas do not include raw keys or key hashes. The password utility enforces a configurable local policy and hashes new passwords with pwdlib's recommended Argon2id hasher before persistence. The bearer-token utility signs short-lived local demo access tokens and validates them into an authenticated user principal for `GET /me`. The API key utility generates high-entropy random keys, stores a deterministic SHA-256 hash plus a short prefix, and resolves active keys for project endpoints only. Production systems need real secret management, TLS, token/key rotation, monitoring, and hardened identity review.
 

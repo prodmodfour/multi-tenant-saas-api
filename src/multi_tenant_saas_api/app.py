@@ -10,6 +10,7 @@ from multi_tenant_saas_api.database import create_database_engine, create_sessio
 from multi_tenant_saas_api.logging_config import configure_logging
 from multi_tenant_saas_api.middleware import install_request_id_middleware
 from multi_tenant_saas_api.routes.api_keys import create_api_key_router
+from multi_tenant_saas_api.routes.audit import create_audit_router
 from multi_tenant_saas_api.routes.auth import create_auth_router
 from multi_tenant_saas_api.routes.memberships import create_membership_router
 from multi_tenant_saas_api.routes.organisations import create_organisation_router
@@ -55,5 +56,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(create_membership_router())
     app.include_router(create_project_router())
     app.include_router(create_api_key_router())
+    app.include_router(create_audit_router())
 
     return app

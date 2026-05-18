@@ -23,11 +23,8 @@ from multi_tenant_saas_api.domain import (
     Permission,
     UserID,
 )
-from multi_tenant_saas_api.repositories import (
-    AuditEventRepository,
-    MembershipRepository,
-    UserRepository,
-)
+from multi_tenant_saas_api.repositories import MembershipRepository, UserRepository
+from multi_tenant_saas_api.services.audit import AuditService
 from multi_tenant_saas_api.services.rbac import (
     CurrentPrincipal,
     PermissionDeniedError,
@@ -87,7 +84,7 @@ class MembershipList:
 class MembershipAPIService:
     """Service layer for organisation membership management endpoints."""
 
-    __slots__ = ("_audit_events", "_memberships", "_rbac", "_session", "_users")
+    __slots__ = ("_audit", "_memberships", "_rbac", "_session", "_users")
 
     def __init__(
         self,
@@ -96,7 +93,7 @@ class MembershipAPIService:
         rbac_service: RBACService,
         user_repository: UserRepository | None = None,
         membership_repository: MembershipRepository | None = None,
-        audit_event_repository: AuditEventRepository | None = None,
+        audit_service: AuditService | None = None,
     ) -> None:
         """Initialise membership workflows with repository collaborators."""
 
@@ -104,7 +101,7 @@ class MembershipAPIService:
         self._rbac = rbac_service
         self._users = user_repository or UserRepository(session)
         self._memberships = membership_repository or MembershipRepository(session)
-        self._audit_events = audit_event_repository or AuditEventRepository(session)
+        self._audit = audit_service or AuditService(session=session)
 
     async def list_members(
         self,
@@ -168,13 +165,13 @@ class MembershipAPIService:
                 user_id=target_user_uuid,
                 role=role,
             )
-            await self._audit_events.create(
+            await self._audit.record_event(
                 action=AuditAction.MEMBER_ADDED,
                 organisation_id=organisation_uuid,
                 actor_user_id=_uuid_from_user_id(principal.user_id),
                 target_type="membership",
                 target_id=membership.id,
-                event_metadata={"user_id": str(target_user_uuid), "role": role.value},
+                metadata={"user_id": str(target_user_uuid), "role": role.value},
             )
             await self._session.commit()
         except IntegrityError as exc:
@@ -227,13 +224,13 @@ class MembershipAPIService:
 
         try:
             updated_membership = await self._memberships.update_role(membership, role=role)
-            await self._audit_events.create(
+            await self._audit.record_event(
                 action=AuditAction.MEMBER_ROLE_CHANGED,
                 organisation_id=organisation_uuid,
                 actor_user_id=_uuid_from_user_id(principal.user_id),
                 target_type="membership",
                 target_id=updated_membership.id,
-                event_metadata={
+                metadata={
                     "user_id": str(target_user_uuid),
                     "old_role": old_role.value,
                     "new_role": role.value,
@@ -281,13 +278,13 @@ class MembershipAPIService:
         membership_id = membership.id
         try:
             await self._memberships.delete(membership)
-            await self._audit_events.create(
+            await self._audit.record_event(
                 action=AuditAction.MEMBER_REMOVED,
                 organisation_id=organisation_uuid,
                 actor_user_id=_uuid_from_user_id(principal.user_id),
                 target_type="membership",
                 target_id=membership_id,
-                event_metadata={"user_id": str(target_user_uuid), "role": removed_role.value},
+                metadata={"user_id": str(target_user_uuid), "role": removed_role.value},
             )
             await self._session.commit()
         except Exception:

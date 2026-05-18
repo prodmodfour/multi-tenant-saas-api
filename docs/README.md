@@ -58,3 +58,11 @@ Implemented API key endpoints:
 - `DELETE /orgs/{org_id}/api-keys/{api_key_id}`: requires `manage_api_keys`, revokes the key, and writes an `api_key.revoked` audit event with secret-safe metadata.
 
 API keys authenticate with `Authorization: Bearer <raw_key>` on project endpoints only. They cannot manage members or create/list/revoke API keys. Revoked keys are excluded from authentication lookup.
+
+## Audit API
+
+Implemented audit endpoint:
+
+- `GET /orgs/{org_id}/audit-events`: requires tenant membership and `read_audit_events`, so only `owner` and `admin` members can read audit logs. `member`, `viewer`, non-member, and cross-tenant requests are denied before audit rows are listed. Responses use `limit`/`offset` pagination metadata and return newest events first.
+
+Audit event creation is centralised in an append-only audit service used by core business workflows. The service records registration/login, organisation create/update, member add/role-change/remove, project create/update/delete, and API key create/revoke events. It exposes no public update/delete workflow for audit events and rejects obvious secret-bearing metadata fields such as passwords, password hashes, raw API keys, key hashes, bearer tokens, and authorization values. API key metadata may include non-secret labels and short key prefixes for operator identification.

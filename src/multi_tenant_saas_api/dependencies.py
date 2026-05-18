@@ -13,6 +13,7 @@ from multi_tenant_saas_api.services import (
     APIKeyAPIService,
     APIKeyAuthenticationError,
     APIKeyAuthenticationService,
+    AuditService,
     CurrentPrincipal,
     PasswordHashingService,
     PrincipalResolutionError,
@@ -96,6 +97,15 @@ def get_api_key_api_service(
     return APIKeyAPIService(session=session, rbac_service=rbac_service)
 
 
+def get_audit_service(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    rbac_service: Annotated[RBACService, Depends(get_rbac_service)],
+) -> AuditService:
+    """Build the audit workflow service for one request."""
+
+    return AuditService(session=session, rbac_service=rbac_service)
+
+
 def get_api_key_authentication_service(
     session: Annotated[AsyncSession, Depends(get_session)],
     rbac_service: Annotated[RBACService, Depends(get_rbac_service)],
@@ -166,6 +176,7 @@ def _unauthorized(detail: str) -> HTTPException:
 __all__ = [
     "get_api_key_api_service",
     "get_api_key_authentication_service",
+    "get_audit_service",
     "get_auth_api_service",
     "get_current_principal",
     "get_membership_api_service",

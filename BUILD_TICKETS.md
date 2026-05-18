@@ -538,7 +538,7 @@ Commit when complete.
 
 ## 012 — Add audit log API and audit integration
 
-Status: TODO
+Status: DONE
 
 Implement:
 

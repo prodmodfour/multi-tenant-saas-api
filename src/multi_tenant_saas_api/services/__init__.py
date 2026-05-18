@@ -14,6 +14,14 @@ from multi_tenant_saas_api.services.api_keys import (
     PublicAPIKey,
     RevokedAPIKey,
 )
+from multi_tenant_saas_api.services.audit import (
+    AuditEventPage,
+    AuditMetadataRejectedError,
+    AuditReadServiceConfigurationError,
+    AuditService,
+    AuditServiceError,
+    PublicAuditEvent,
+)
 from multi_tenant_saas_api.services.auth import (
     AccessToken,
     AccessTokenError,
@@ -88,6 +96,11 @@ __all__ = [
     "APIKeyNotFoundError",
     "APIKeyPrincipal",
     "APIKeySecretService",
+    "AuditEventPage",
+    "AuditMetadataRejectedError",
+    "AuditReadServiceConfigurationError",
+    "AuditService",
+    "AuditServiceError",
     "AuthAPIService",
     "AuthAPIServiceError",
     "AuthenticatedPrincipal",
@@ -126,6 +139,7 @@ __all__ = [
     "PrincipalType",
     "PublicMembership",
     "PublicAPIKey",
+    "PublicAuditEvent",
     "PublicMembershipUser",
     "PublicOrganisation",
     "PublicProject",
