@@ -8,7 +8,11 @@ from fastapi import FastAPI
 from multi_tenant_saas_api.config import Settings, get_settings
 from multi_tenant_saas_api.database import create_database_engine, create_session_factory
 from multi_tenant_saas_api.logging_config import configure_logging
-from multi_tenant_saas_api.middleware import install_request_id_middleware
+from multi_tenant_saas_api.middleware import (
+    install_metrics_middleware,
+    install_request_id_middleware,
+)
+from multi_tenant_saas_api.observability import MetricsService
 from multi_tenant_saas_api.routes.api_keys import create_api_key_router
 from multi_tenant_saas_api.routes.audit import create_audit_router
 from multi_tenant_saas_api.routes.auth import create_auth_router
@@ -30,6 +34,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     database_engine = create_database_engine(app_settings)
     session_factory = create_session_factory(database_engine)
+    metrics_service = MetricsService()
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
@@ -48,8 +53,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = app_settings
     app.state.session_factory = session_factory
+    app.state.metrics_service = metrics_service
 
     install_request_id_middleware(app)
+    install_metrics_middleware(app, metrics_service)
     app.include_router(create_system_router(app_settings))
     app.include_router(create_auth_router())
     app.include_router(create_organisation_router())

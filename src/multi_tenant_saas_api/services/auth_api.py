@@ -24,6 +24,7 @@ from multi_tenant_saas_api.domain import (
     OrganisationRole,
     UserID,
 )
+from multi_tenant_saas_api.observability import MetricsRecorder, NoOpMetricsRecorder
 from multi_tenant_saas_api.repositories import (
     MembershipRepository,
     OrganisationRepository,
@@ -91,6 +92,7 @@ class AuthAPIService:
     __slots__ = (
         "_audit",
         "_memberships",
+        "_metrics",
         "_organisations",
         "_passwords",
         "_principals",
@@ -110,6 +112,7 @@ class AuthAPIService:
         organisation_repository: OrganisationRepository | None = None,
         audit_service: AuditService | None = None,
         principal_resolver: PrincipalResolverService | None = None,
+        metrics_recorder: MetricsRecorder | None = None,
     ) -> None:
         """Initialise authentication workflows with repositories and utilities."""
 
@@ -119,7 +122,11 @@ class AuthAPIService:
         self._users = user_repository or UserRepository(session)
         self._memberships = membership_repository or MembershipRepository(session)
         self._organisations = organisation_repository or OrganisationRepository(session)
-        self._audit = audit_service or AuditService(session=session)
+        self._metrics = metrics_recorder or NoOpMetricsRecorder()
+        self._audit = audit_service or AuditService(
+            session=session,
+            metrics_recorder=self._metrics,
+        )
         self._principals = principal_resolver or PrincipalResolverService(
             token_service=token_service,
             user_repository=self._users,
@@ -137,9 +144,14 @@ class AuthAPIService:
         normalised_email = _normalise_email(email)
         existing_user = await self._users.get_by_email(normalised_email)
         if existing_user is not None:
+            self._metrics.record_auth_attempt(operation="register", outcome="failure")
             raise EmailAlreadyRegisteredError("email is already registered")
 
-        password_hash = self._passwords.hash_password(password.get_secret_value())
+        try:
+            password_hash = self._passwords.hash_password(password.get_secret_value())
+        except Exception:
+            self._metrics.record_auth_attempt(operation="register", outcome="failure")
+            raise
 
         try:
             user = await self._users.create(
@@ -155,8 +167,10 @@ class AuthAPIService:
                 metadata={},
             )
             await self._session.commit()
+            self._metrics.record_auth_attempt(operation="register", outcome="success")
         except IntegrityError as exc:
             await self._session.rollback()
+            self._metrics.record_auth_attempt(operation="register", outcome="failure")
             raise EmailAlreadyRegisteredError("email is already registered") from exc
         except Exception:
             await self._session.rollback()
@@ -175,6 +189,7 @@ class AuthAPIService:
         normalised_email = _normalise_email(email)
         user = await self._users.get_by_email(normalised_email)
         if user is None or not user.is_active:
+            self._metrics.record_auth_attempt(operation="login", outcome="failure")
             raise InvalidCredentialsError("invalid email or password")
 
         password_matches = self._passwords.verify_password(
@@ -182,6 +197,7 @@ class AuthAPIService:
             user.password_hash,
         )
         if not password_matches:
+            self._metrics.record_auth_attempt(operation="login", outcome="failure")
             raise InvalidCredentialsError("invalid email or password")
 
         access_token = self._tokens.create_access_token(UserID(user.id))
@@ -195,6 +211,7 @@ class AuthAPIService:
                 metadata={},
             )
             await self._session.commit()
+            self._metrics.record_auth_attempt(operation="login", outcome="success")
         except Exception:
             await self._session.rollback()
             raise

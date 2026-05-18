@@ -5,7 +5,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Response, status
 
 from multi_tenant_saas_api.config import Settings
-from multi_tenant_saas_api.dependencies import get_readiness_service
+from multi_tenant_saas_api.dependencies import get_metrics_service, get_readiness_service
+from multi_tenant_saas_api.observability import MetricsService
 from multi_tenant_saas_api.schemas.system import (
     DependencyReadinessResponse,
     HealthResponse,
@@ -28,6 +29,20 @@ def create_system_router(settings: Settings) -> APIRouter:
             app_name=settings.app_name,
             version=settings.app_version,
             environment=settings.environment,
+        )
+
+    @router.get(
+        "/metrics",
+        summary="Prometheus metrics",
+    )
+    async def metrics(
+        metrics_service: Annotated[MetricsService, Depends(get_metrics_service)],
+    ) -> Response:
+        """Return Prometheus text exposition for API metrics."""
+
+        return Response(
+            content=metrics_service.render(),
+            media_type=metrics_service.content_type,
         )
 
     @router.get(

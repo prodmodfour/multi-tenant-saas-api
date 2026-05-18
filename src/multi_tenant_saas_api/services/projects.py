@@ -26,6 +26,7 @@ from multi_tenant_saas_api.domain import (
     SortDirection,
     UserID,
 )
+from multi_tenant_saas_api.observability import MetricsRecorder, NoOpMetricsRecorder
 from multi_tenant_saas_api.repositories import ProjectRepository
 from multi_tenant_saas_api.services.api_keys import APIKeyPrincipal, ProjectPrincipal
 from multi_tenant_saas_api.services.audit import AuditService
@@ -75,7 +76,7 @@ _API_KEY_PROJECT_PERMISSIONS = frozenset({Permission.READ_PROJECTS, Permission.W
 class ProjectAPIService:
     """Service layer for organisation-scoped project endpoints."""
 
-    __slots__ = ("_audit", "_projects", "_rbac", "_session")
+    __slots__ = ("_audit", "_metrics", "_projects", "_rbac", "_session")
 
     def __init__(
         self,
@@ -84,13 +85,18 @@ class ProjectAPIService:
         rbac_service: RBACService,
         project_repository: ProjectRepository | None = None,
         audit_service: AuditService | None = None,
+        metrics_recorder: MetricsRecorder | None = None,
     ) -> None:
         """Initialise project workflows with repository collaborators."""
 
         self._session = session
         self._rbac = rbac_service
         self._projects = project_repository or ProjectRepository(session)
-        self._audit = audit_service or AuditService(session=session)
+        self._metrics = metrics_recorder or NoOpMetricsRecorder()
+        self._audit = audit_service or AuditService(
+            session=session,
+            metrics_recorder=self._metrics,
+        )
 
     async def ensure_can_create_project(
         self,
@@ -144,6 +150,7 @@ class ProjectAPIService:
                 metadata={"project_name": project.name, "status": project.status.value},
             )
             await self._session.commit()
+            self._metrics.record_project_created()
         except Exception:
             await self._session.rollback()
             raise

@@ -8,6 +8,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from multi_tenant_saas_api.config import Settings
+from multi_tenant_saas_api.observability import MetricsService
 from multi_tenant_saas_api.services import (
     AccessTokenService,
     APIKeyAPIService,
@@ -47,9 +48,16 @@ async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
         yield session
 
 
+def get_metrics_service(request: Request) -> MetricsService:
+    """Return the app-local Prometheus metrics service."""
+
+    return cast(MetricsService, request.app.state.metrics_service)
+
+
 def get_auth_api_service(
     session: Annotated[AsyncSession, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings_from_app)],
+    metrics_service: Annotated[MetricsService, Depends(get_metrics_service)],
 ) -> AuthAPIService:
     """Build the authentication workflow service for one request."""
 
@@ -57,6 +65,7 @@ def get_auth_api_service(
         session=session,
         password_service=PasswordHashingService.from_settings(settings),
         token_service=AccessTokenService.from_settings(settings),
+        metrics_recorder=metrics_service,
     )
 
 
@@ -75,45 +84,66 @@ def get_rbac_service(
 def get_organisation_api_service(
     session: Annotated[AsyncSession, Depends(get_session)],
     rbac_service: Annotated[RBACService, Depends(get_rbac_service)],
+    metrics_service: Annotated[MetricsService, Depends(get_metrics_service)],
 ) -> OrganisationAPIService:
     """Build the organisation workflow service for one request."""
 
-    return OrganisationAPIService(session=session, rbac_service=rbac_service)
+    return OrganisationAPIService(
+        session=session,
+        rbac_service=rbac_service,
+        metrics_recorder=metrics_service,
+    )
 
 
 def get_membership_api_service(
     session: Annotated[AsyncSession, Depends(get_session)],
     rbac_service: Annotated[RBACService, Depends(get_rbac_service)],
+    metrics_service: Annotated[MetricsService, Depends(get_metrics_service)],
 ) -> MembershipAPIService:
     """Build the membership management workflow service for one request."""
 
-    return MembershipAPIService(session=session, rbac_service=rbac_service)
+    return MembershipAPIService(
+        session=session,
+        rbac_service=rbac_service,
+        metrics_recorder=metrics_service,
+    )
 
 
 def get_api_key_api_service(
     session: Annotated[AsyncSession, Depends(get_session)],
     rbac_service: Annotated[RBACService, Depends(get_rbac_service)],
+    metrics_service: Annotated[MetricsService, Depends(get_metrics_service)],
 ) -> APIKeyAPIService:
     """Build the API key management workflow service for one request."""
 
-    return APIKeyAPIService(session=session, rbac_service=rbac_service)
+    return APIKeyAPIService(
+        session=session,
+        rbac_service=rbac_service,
+        metrics_recorder=metrics_service,
+    )
 
 
 def get_audit_service(
     session: Annotated[AsyncSession, Depends(get_session)],
     rbac_service: Annotated[RBACService, Depends(get_rbac_service)],
+    metrics_service: Annotated[MetricsService, Depends(get_metrics_service)],
 ) -> AuditService:
     """Build the audit workflow service for one request."""
 
-    return AuditService(session=session, rbac_service=rbac_service)
+    return AuditService(
+        session=session,
+        rbac_service=rbac_service,
+        metrics_recorder=metrics_service,
+    )
 
 
 def get_idempotency_service(
     session: Annotated[AsyncSession, Depends(get_session)],
+    metrics_service: Annotated[MetricsService, Depends(get_metrics_service)],
 ) -> IdempotencyService:
     """Build the idempotency workflow service for one request."""
 
-    return IdempotencyService(session=session)
+    return IdempotencyService(session=session, metrics_recorder=metrics_service)
 
 
 def get_readiness_service(
@@ -136,10 +166,15 @@ def get_api_key_authentication_service(
 def get_project_api_service(
     session: Annotated[AsyncSession, Depends(get_session)],
     rbac_service: Annotated[RBACService, Depends(get_rbac_service)],
+    metrics_service: Annotated[MetricsService, Depends(get_metrics_service)],
 ) -> ProjectAPIService:
     """Build the project workflow service for one request."""
 
-    return ProjectAPIService(session=session, rbac_service=rbac_service)
+    return ProjectAPIService(
+        session=session,
+        rbac_service=rbac_service,
+        metrics_recorder=metrics_service,
+    )
 
 
 def require_bearer_token(
@@ -199,6 +234,7 @@ __all__ = [
     "get_current_principal",
     "get_idempotency_service",
     "get_membership_api_service",
+    "get_metrics_service",
     "get_organisation_api_service",
     "get_project_api_service",
     "get_project_principal",

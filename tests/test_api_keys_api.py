@@ -247,6 +247,10 @@ def test_owner_can_create_api_key_returns_raw_once_and_stores_only_hash() -> Non
     assert fake.committed == 1
     assert fake.rolled_back == 0
 
+    metrics_text = client.get("/metrics").text
+    assert "saas_api_api_keys_created_total 1.0" in metrics_text
+    assert 'saas_api_audit_events_recorded_total{action="api_key.created"} 1.0' in metrics_text
+
 
 def test_api_key_list_exposes_metadata_without_raw_key_or_hash() -> None:
     actor_user_id = uuid4()
@@ -351,6 +355,10 @@ def test_admin_can_revoke_api_key_and_records_audit_event() -> None:
     assert raw_key not in str(audit_event.event_metadata)
     assert "key_hash" not in str(audit_event.event_metadata)
     assert fake.committed == 1
+
+    metrics_text = client.get("/metrics").text
+    assert "saas_api_api_keys_revoked_total 1.0" in metrics_text
+    assert 'saas_api_audit_events_recorded_total{action="api_key.revoked"} 1.0' in metrics_text
 
 
 def test_api_key_can_read_allowed_project_endpoint_and_updates_last_used() -> None:

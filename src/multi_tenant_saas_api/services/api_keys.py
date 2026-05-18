@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from multi_tenant_saas_api.database import APIKey
 from multi_tenant_saas_api.domain import APIKeyID, AuditAction, OrganisationID, Permission, UserID
+from multi_tenant_saas_api.observability import MetricsRecorder, NoOpMetricsRecorder
 from multi_tenant_saas_api.repositories import APIKeyRepository
 from multi_tenant_saas_api.services.audit import AuditService
 from multi_tenant_saas_api.services.auth import PrincipalType
@@ -132,7 +133,7 @@ class APIKeySecretService:
 class APIKeyAPIService:
     """Service layer for organisation-scoped API key management endpoints."""
 
-    __slots__ = ("_api_keys", "_audit", "_key_secrets", "_rbac", "_session")
+    __slots__ = ("_api_keys", "_audit", "_key_secrets", "_metrics", "_rbac", "_session")
 
     def __init__(
         self,
@@ -142,13 +143,18 @@ class APIKeyAPIService:
         api_key_repository: APIKeyRepository | None = None,
         audit_service: AuditService | None = None,
         key_secret_service: APIKeySecretService | None = None,
+        metrics_recorder: MetricsRecorder | None = None,
     ) -> None:
         """Initialise API key workflows with repository collaborators."""
 
         self._session = session
         self._rbac = rbac_service
         self._api_keys = api_key_repository or APIKeyRepository(session)
-        self._audit = audit_service or AuditService(session=session)
+        self._metrics = metrics_recorder or NoOpMetricsRecorder()
+        self._audit = audit_service or AuditService(
+            session=session,
+            metrics_recorder=self._metrics,
+        )
         self._key_secrets = key_secret_service or APIKeySecretService()
 
     async def ensure_can_create_api_key(
@@ -203,6 +209,7 @@ class APIKeyAPIService:
                 metadata={"api_key_name": api_key.name, "key_prefix": api_key.key_prefix},
             )
             await self._session.commit()
+            self._metrics.record_api_key_created()
         except Exception:
             await self._session.rollback()
             raise
@@ -276,6 +283,7 @@ class APIKeyAPIService:
                     },
                 )
                 await self._session.commit()
+                self._metrics.record_api_key_revoked()
         except Exception:
             await self._session.rollback()
             raise

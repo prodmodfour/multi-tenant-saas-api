@@ -194,6 +194,10 @@ def test_create_org_makes_creator_owner_and_records_audit_event() -> None:
     assert fake.committed == 1
     assert fake.rolled_back == 0
 
+    metrics_text = client.get("/metrics").text
+    assert "saas_api_organisations_created_total 1.0" in metrics_text
+    assert 'saas_api_audit_events_recorded_total{action="organisation.created"} 1.0' in metrics_text
+
 
 def test_list_orgs_returns_only_current_user_memberships() -> None:
     user_id = uuid4()

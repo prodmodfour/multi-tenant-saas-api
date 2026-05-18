@@ -23,6 +23,7 @@ from multi_tenant_saas_api.domain import (
     Permission,
     UserID,
 )
+from multi_tenant_saas_api.observability import MetricsRecorder, NoOpMetricsRecorder
 from multi_tenant_saas_api.repositories import MembershipRepository, UserRepository
 from multi_tenant_saas_api.services.audit import AuditService
 from multi_tenant_saas_api.services.rbac import (
@@ -84,7 +85,7 @@ class MembershipList:
 class MembershipAPIService:
     """Service layer for organisation membership management endpoints."""
 
-    __slots__ = ("_audit", "_memberships", "_rbac", "_session", "_users")
+    __slots__ = ("_audit", "_memberships", "_metrics", "_rbac", "_session", "_users")
 
     def __init__(
         self,
@@ -94,6 +95,7 @@ class MembershipAPIService:
         user_repository: UserRepository | None = None,
         membership_repository: MembershipRepository | None = None,
         audit_service: AuditService | None = None,
+        metrics_recorder: MetricsRecorder | None = None,
     ) -> None:
         """Initialise membership workflows with repository collaborators."""
 
@@ -101,7 +103,11 @@ class MembershipAPIService:
         self._rbac = rbac_service
         self._users = user_repository or UserRepository(session)
         self._memberships = membership_repository or MembershipRepository(session)
-        self._audit = audit_service or AuditService(session=session)
+        self._metrics = metrics_recorder or NoOpMetricsRecorder()
+        self._audit = audit_service or AuditService(
+            session=session,
+            metrics_recorder=self._metrics,
+        )
 
     async def list_members(
         self,

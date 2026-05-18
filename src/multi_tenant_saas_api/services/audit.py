@@ -25,6 +25,7 @@ from multi_tenant_saas_api.domain import (
     Permission,
     UserID,
 )
+from multi_tenant_saas_api.observability import MetricsRecorder, NoOpMetricsRecorder
 from multi_tenant_saas_api.repositories import AuditEventRepository
 from multi_tenant_saas_api.services.rbac import CurrentPrincipal, RBACService
 
@@ -90,7 +91,7 @@ class AuditService:
     RBAC service and the ``read_audit_events`` permission.
     """
 
-    __slots__ = ("_audit_events", "_rbac")
+    __slots__ = ("_audit_events", "_metrics", "_rbac")
 
     def __init__(
         self,
@@ -98,11 +99,13 @@ class AuditService:
         session: AsyncSession,
         rbac_service: RBACService | None = None,
         audit_event_repository: AuditEventRepository | None = None,
+        metrics_recorder: MetricsRecorder | None = None,
     ) -> None:
         """Initialise audit workflows with repository and optional RBAC collaborators."""
 
         self._audit_events = audit_event_repository or AuditEventRepository(session)
         self._rbac = rbac_service
+        self._metrics = metrics_recorder or NoOpMetricsRecorder()
 
     async def record_event(
         self,
@@ -133,6 +136,7 @@ class AuditService:
             target_id=target_id,
             event_metadata=metadata_dict,
         )
+        self._metrics.record_audit_event(action=action.value)
         return _public_audit_event_from_model(audit_event)
 
     async def list_organisation_events(

@@ -216,6 +216,9 @@ def test_post_org_replays_stored_response_for_same_principal_key_and_body() -> N
     assert sum(isinstance(instance, Organisation) for instance in fake.added) == 1
     assert fake.committed == 2
 
+    metrics_text = client.get("/metrics").text
+    assert "saas_api_idempotency_replays_total 1.0" in metrics_text
+
 
 def test_idempotency_key_reused_with_different_body_returns_conflict() -> None:
     actor_user_id = uuid4()
@@ -244,6 +247,9 @@ def test_idempotency_key_reused_with_different_body_returns_conflict() -> None:
     assert "request_hash" not in response.text
     assert fake.added == []
     assert fake.committed == 0
+
+    metrics_text = client.get("/metrics").text
+    assert "saas_api_idempotency_conflicts_total 1.0" in metrics_text
 
 
 def test_project_idempotency_records_are_scoped_to_the_organisation() -> None:

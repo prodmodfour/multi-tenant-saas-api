@@ -19,6 +19,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from multi_tenant_saas_api.domain import APIKeyID, OrganisationID, UserID
+from multi_tenant_saas_api.observability import MetricsRecorder, NoOpMetricsRecorder
 from multi_tenant_saas_api.repositories import IdempotencyRecordRepository
 from multi_tenant_saas_api.services.api_keys import ProjectPrincipal
 from multi_tenant_saas_api.services.auth import PrincipalType
@@ -87,18 +88,20 @@ class IdempotencyDecision:
 class IdempotencyService:
     """Service layer for idempotency key lookups and response snapshots."""
 
-    __slots__ = ("_records", "_session")
+    __slots__ = ("_metrics", "_records", "_session")
 
     def __init__(
         self,
         *,
         session: AsyncSession,
         idempotency_repository: IdempotencyRecordRepository | None = None,
+        metrics_recorder: MetricsRecorder | None = None,
     ) -> None:
         """Initialise idempotency workflows with repository collaborators."""
 
         self._session = session
         self._records = idempotency_repository or IdempotencyRecordRepository(session)
+        self._metrics = metrics_recorder or NoOpMetricsRecorder()
 
     async def start_request(
         self,
@@ -142,10 +145,12 @@ class IdempotencyService:
             return IdempotencyDecision(context=context, replay=None)
 
         if existing_record.request_hash != context.request_hash:
+            self._metrics.record_idempotency_conflict()
             raise IdempotencyConflictError(
                 "idempotency key was already used with a different request body"
             )
 
+        self._metrics.record_idempotency_replay()
         return IdempotencyDecision(
             context=context,
             replay=IdempotencyReplay(

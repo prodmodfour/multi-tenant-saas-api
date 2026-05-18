@@ -222,6 +222,10 @@ def test_login_returns_bearer_token_and_records_safe_audit_event() -> None:
     assert audit_event.event_metadata == {}
     assert fake.committed == 1
 
+    metrics_text = client.get("/metrics").text
+    assert 'saas_api_auth_attempts_total{operation="login",outcome="success"} 1.0' in metrics_text
+    assert 'saas_api_audit_events_recorded_total{action="user.logged_in"} 1.0' in metrics_text
+
 
 def test_login_uses_same_safe_error_for_unknown_email_and_wrong_password() -> None:
     unknown_email_fake = FakeSession()

@@ -225,6 +225,10 @@ def test_member_can_create_project_and_records_audit_event() -> None:
     assert fake.committed == 1
     assert fake.rolled_back == 0
 
+    metrics_text = client.get("/metrics").text
+    assert "saas_api_projects_created_total 1.0" in metrics_text
+    assert 'saas_api_audit_events_recorded_total{action="project.created"} 1.0' in metrics_text
+
 
 def test_project_list_supports_pagination_filtering_sorting_and_viewer_reads() -> None:
     actor_user_id = uuid4()

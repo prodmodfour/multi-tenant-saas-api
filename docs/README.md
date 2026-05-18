@@ -67,6 +67,29 @@ Implemented audit endpoint:
 
 Audit event creation is centralised in an append-only audit service used by core business workflows. The service records registration/login, organisation create/update, member add/role-change/remove, project create/update/delete, and API key create/revoke events. It exposes no public update/delete workflow for audit events and rejects obvious secret-bearing metadata fields such as passwords, password hashes, raw API keys, key hashes, bearer tokens, and authorization values. API key metadata may include non-secret labels and short key prefixes for operator identification.
 
+## Metrics
+
+Implemented Prometheus metrics endpoint:
+
+- `GET /metrics`: returns Prometheus text exposition from the app-local metrics registry without requiring authentication so a local scraper can collect it.
+- HTTP request metrics use route templates rather than raw tenant or resource IDs to avoid high-cardinality labels.
+- Business metrics cover auth attempts, organisations created, projects created, API keys created/revoked, audit events recorded, and idempotency replay/conflict outcomes.
+
+Primary metric families:
+
+- `saas_api_requests_total`
+- `saas_api_request_duration_seconds`
+- `saas_api_auth_attempts_total`
+- `saas_api_organisations_created_total`
+- `saas_api_projects_created_total`
+- `saas_api_api_keys_created_total`
+- `saas_api_api_keys_revoked_total`
+- `saas_api_audit_events_recorded_total`
+- `saas_api_idempotency_replays_total`
+- `saas_api_idempotency_conflicts_total`
+
+Prometheus scrape configuration, Grafana dashboards, and container runtime wiring are intentionally deferred to later observability and Docker tickets.
+
 ## Idempotency
 
 Implemented creation idempotency:

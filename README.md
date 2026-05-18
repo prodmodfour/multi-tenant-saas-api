@@ -45,6 +45,7 @@ The project currently includes the repository skeleton, FastAPI application shel
 - `X-Request-ID` propagation
 - `GET /healthz` liveness endpoint
 - `GET /readyz` readiness endpoint with a PostgreSQL `SELECT 1` dependency check
+- `GET /metrics` Prometheus text exposition endpoint
 - domain identifiers, organisation roles, permission mapping, project statuses, and audit actions
 - Pydantic request/response schemas for the planned auth, organisation, membership, project, API key, audit, and pagination contracts
 - async SQLAlchemy engine/session helpers
@@ -64,9 +65,10 @@ The project currently includes the repository skeleton, FastAPI application shel
 - `POST /auth/register`, `POST /auth/login`, `GET /me`, `POST /orgs`, `GET /orgs`, `GET /orgs/{org_id}`, `PATCH /orgs/{org_id}`, `GET /orgs/{org_id}/members`, `POST /orgs/{org_id}/members`, `PATCH /orgs/{org_id}/members/{user_id}`, `DELETE /orgs/{org_id}/members/{user_id}`, `POST /orgs/{org_id}/projects`, `GET /orgs/{org_id}/projects`, `GET /orgs/{org_id}/projects/{project_id}`, `PATCH /orgs/{org_id}/projects/{project_id}`, `DELETE /orgs/{org_id}/projects/{project_id}`, `POST /orgs/{org_id}/api-keys`, `GET /orgs/{org_id}/api-keys`, `DELETE /orgs/{org_id}/api-keys/{api_key_id}`, and `GET /orgs/{org_id}/audit-events`
 - successful registration/login, organisation create/update, member add/update/remove, project create/update/delete, and API key create/revoke audit event writes through the append-only audit service with secret-safe metadata
 - idempotency support for `POST /orgs`, `POST /orgs/{org_id}/projects`, and `POST /orgs/{org_id}/api-keys`, scoped by principal, method, path, request body hash, and organisation where applicable
+- Prometheus metrics for HTTP requests, request duration, auth attempts, created organisations/projects/API keys, revoked API keys, audit events, and idempotency replay/conflict outcomes
 - documentation and decisions directories
 
-Prometheus metrics, Docker, and CI are intentionally not implemented yet; they will be added by later build tickets. The RBAC services are wired into the organisation, membership, project, API key, audit, and idempotency-aware APIs and remain available for future tenant-scoped routes.
+Docker and CI are intentionally not implemented yet; they will be added by later build tickets. The RBAC services are wired into the organisation, membership, project, API key, audit, idempotency-aware, and metrics APIs and remain available for future tenant-scoped routes.
 
 ## Requirements
 
@@ -122,6 +124,7 @@ System endpoints:
 
 - `GET /healthz` — liveness check with application metadata; it does not touch external dependencies.
 - `GET /readyz` — readiness check that executes a minimal PostgreSQL round trip. It returns `200` with `status: "ready"` when the database check succeeds and `503` with `status: "not_ready"` when PostgreSQL is unavailable. The failure response identifies the `postgresql` dependency without exposing database URLs, credentials, or driver exception details.
+- `GET /metrics` — Prometheus text exposition for app-local metrics. The endpoint does not require authentication so local Prometheus can scrape it.
 
 Auth endpoints:
 
@@ -175,6 +178,25 @@ Idempotency:
 - Reusing the same key with the same principal, method, path, organisation scope, and request body hash returns the stored response with `Idempotency-Replayed: true`.
 - Reusing the same key with a different request body returns `409 Conflict` without exposing body hashes.
 - API key creation replay intentionally omits `raw_key`; raw API key material is returned only by the initial create response and is never persisted in idempotency snapshots.
+
+## Observability
+
+The app exposes Prometheus metrics at `GET /metrics` using an app-local registry. Request metrics use low-cardinality route templates such as `/orgs/{organisation_id}/projects` instead of raw tenant IDs.
+
+Implemented metric families:
+
+- `saas_api_requests_total`
+- `saas_api_request_duration_seconds`
+- `saas_api_auth_attempts_total`
+- `saas_api_organisations_created_total`
+- `saas_api_projects_created_total`
+- `saas_api_api_keys_created_total`
+- `saas_api_api_keys_revoked_total`
+- `saas_api_audit_events_recorded_total`
+- `saas_api_idempotency_replays_total`
+- `saas_api_idempotency_conflicts_total`
+
+Prometheus scrape configuration, Grafana dashboards, and containerised observability are intentionally deferred to later Docker/observability tickets.
 
 ## Role model and tenant access policy
 
