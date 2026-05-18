@@ -31,19 +31,23 @@ from multi_tenant_saas_api.services.rbac import CurrentPrincipal, RBACService
 
 _FORBIDDEN_METADATA_KEYS = frozenset(
     {
+        "access_token",
+        "api_key",
         "authorization",
         "bearer_token",
         "key_hash",
         "password",
         "password_hash",
+        "raw_api_key",
         "raw_key",
         "raw_password",
+        "raw_token",
         "refresh_token",
         "secret",
         "token",
-        "access_token",
     }
 )
+_FORBIDDEN_METADATA_SUFFIXES = ("_hash", "_password", "_secret", "_token")
 
 
 class AuditServiceError(ValueError):
@@ -184,7 +188,7 @@ def _contains_forbidden_metadata_key(value: object) -> bool:
 
     if isinstance(value, Mapping):
         for key, nested_value in value.items():
-            if isinstance(key, str) and _normalise_metadata_key(key) in _FORBIDDEN_METADATA_KEYS:
+            if isinstance(key, str) and _is_forbidden_metadata_key(key):
                 return True
             if _contains_forbidden_metadata_key(nested_value):
                 return True
@@ -192,6 +196,15 @@ def _contains_forbidden_metadata_key(value: object) -> bool:
     if isinstance(value, list | tuple):
         return any(_contains_forbidden_metadata_key(item) for item in value)
     return False
+
+
+def _is_forbidden_metadata_key(key: str) -> bool:
+    """Return whether an audit metadata key appears to carry secret material."""
+
+    normalised = _normalise_metadata_key(key)
+    return normalised in _FORBIDDEN_METADATA_KEYS or normalised.endswith(
+        _FORBIDDEN_METADATA_SUFFIXES
+    )
 
 
 def _normalise_metadata_key(key: str) -> str:

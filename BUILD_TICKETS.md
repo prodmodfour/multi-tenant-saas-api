@@ -1,6 +1,6 @@
 # BUILD_TICKETS.md
 
-AUTOMATION_STATUS: IN_PROGRESS
+AUTOMATION_STATUS: DONE
 
 Ticket statuses:
 
@@ -878,7 +878,7 @@ Commit when complete.
 
 ## 024 — Final autonomous review and completion marker
 
-Status: TODO
+Status: DONE
 
 Perform a final repository review.
 

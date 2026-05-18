@@ -2,7 +2,7 @@
 
 ## Current state
 
-Tickets 000 through 023 are complete. The repository has a Python 3.12 `src/` layout, FastAPI app shell, environment-backed settings, structured JSON logging, request ID propagation, health/readiness/metrics endpoints, async SQLAlchemy persistence, Alembic migrations, repository layer, local demo auth, RBAC/tenant context, organisation APIs, membership management, tenant-scoped project APIs, organisation API key management, API key project authentication, an audit log API, idempotency support for selected unsafe creation endpoints, Prometheus metrics instrumentation, a local Docker Compose stack, local Prometheus/Grafana observability configuration, a safe local smoke/demo script, GitHub Actions CI, dedicated architecture/security/API/operations/runbook documentation, architecture decision records, and a polished reviewer-facing README.
+Tickets 000 through 024 are complete. The repository has a Python 3.12 `src/` layout, FastAPI app shell, environment-backed settings, structured JSON logging, request ID propagation, health/readiness/metrics endpoints, async SQLAlchemy persistence, Alembic migrations, repository layer, local demo auth, RBAC/tenant context, organisation APIs, membership management, tenant-scoped project APIs, organisation API key management, API key project authentication, an audit log API, idempotency support for selected unsafe creation endpoints, Prometheus metrics instrumentation, a local Docker Compose stack, local Prometheus/Grafana observability configuration, a safe local smoke/demo script, GitHub Actions CI, dedicated architecture/security/API/operations/runbook documentation, architecture decision records, and a polished reviewer-facing README.
 
 Implemented application behaviour currently includes:
 
@@ -111,27 +111,25 @@ The committed `example.env` and `docker-compose.yml` use local placeholder value
 
 ## Latest cycle notes
 
-Implemented Ticket 023:
+Implemented Ticket 024:
 
-- rewrote the README opening so the first screen clearly frames the project as a production-style FastAPI backend portfolio piece
-- added a suggested review path for hiring reviewers, including docs, quality gate, smoke demo, and representative tests
-- reorganised README sections around public-safety constraints, security boundaries, implemented scope, out-of-scope items, requirements, quick start, configuration, API surface, auth/RBAC, API keys, audit/idempotency, observability, testing/quality gates, architecture links, and limitations
-- preserved public-safe placeholder guidance and documented that raw API key material is returned only in the intentional one-time create response
-- added a README documentation test that asserts the final reviewer-facing sections and key API/idempotency/architecture fragments remain present
+- performed the final repository review against the ticket checklist: public-safety framing, secret handling, password/API-key hash persistence, tenant isolation and RBAC test coverage, README behaviour alignment, CI coherence, Docker Compose validation, architecture boundaries, and portfolio positioning
+- hardened audit metadata validation to reject additional obvious secret-bearing key names such as `raw_api_key`, exact `api_key`, token-like suffixes, password-like suffixes, secret-like suffixes, and hash-like suffixes while preserving safe metadata such as `api_key_name` and `key_prefix`
+- extended audit service tests to cover the broadened secret metadata rejection cases, including nested and normalised field names
+- marked Ticket 024 as done and set the top-level automation status to `DONE`
 
 Quality gates run:
 
-- targeted public-safety guardrail completed successfully: `python3 scripts/guardrails.py public-safety`
-- targeted documentation/smoke tests completed successfully: `uv run pytest tests/test_documentation.py tests/test_smoke_demo.py`
-- targeted static checks completed successfully: `uv run ruff check tests/test_documentation.py`, `uv run ruff format --check tests/test_documentation.py`, and `uv run mypy tests/test_documentation.py`
-- `scripts/quality-gate.sh` completed successfully after implementation
+- targeted audit tests completed successfully: `uv run pytest tests/test_audit_api.py`
+- targeted static checks completed successfully: `uv run ruff check src/multi_tenant_saas_api/services/audit.py tests/test_audit_api.py`, `uv run ruff format --check src/multi_tenant_saas_api/services/audit.py tests/test_audit_api.py`, and `uv run mypy src/multi_tenant_saas_api/services/audit.py tests/test_audit_api.py`
+- final `scripts/quality-gate.sh` completed successfully after implementation
 - gate covered shell syntax checks, `uv sync --locked --all-groups`, Ruff check, Ruff format check, mypy strict checks, pytest with coverage (`130 passed`), Docker Compose config validation, and all three guardrail scripts
 
 Limitations:
 
-- This ticket changed documentation only; existing application behaviour and project limitations remain unchanged.
+- No new API surface or setup behaviour was added in the final review.
 - Existing limitations remain: Compose credentials and JWT settings are local placeholders only, observability is local-demo oriented, API key scopes are coarse-grained, idempotency cleanup/concurrency hardening is not implemented, and local auth is not a hardened identity platform.
 
 ## Next recommended ticket
 
-Ticket 024.
+None — all planned build tickets are complete.

@@ -200,15 +200,23 @@ def test_audit_service_records_core_operation_without_commit_and_rejects_secrets
         assert fake.flushed == 1
         assert fake.committed == 0
 
-        with raises(AuditMetadataRejectedError):
-            await audit_service.record_event(
-                action=AuditAction.API_KEY_CREATED,
-                organisation_id=organisation_id,
-                actor_user_id=actor_user_id,
-                target_type="api_key",
-                target_id=uuid4(),
-                metadata={"raw_key": "must-not-be-audited"},
-            )
+        forbidden_metadata_examples = (
+            {"raw_key": "must-not-be-audited"},
+            {"raw_api_key": "must-not-be-audited"},
+            {"api_key": "must-not-be-audited"},
+            {"login-token": "must-not-be-audited"},
+            {"nested": {"jwt secret": "must-not-be-audited"}},
+        )
+        for metadata in forbidden_metadata_examples:
+            with raises(AuditMetadataRejectedError):
+                await audit_service.record_event(
+                    action=AuditAction.API_KEY_CREATED,
+                    organisation_id=organisation_id,
+                    actor_user_id=actor_user_id,
+                    target_type="api_key",
+                    target_id=uuid4(),
+                    metadata=metadata,
+                )
 
     asyncio.run(scenario())
 
