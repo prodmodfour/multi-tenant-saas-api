@@ -242,7 +242,7 @@ Commit when complete.
 
 ## 004 — Add repository layer
 
-Status: TODO
+Status: DONE
 
 Implement repositories for:
 

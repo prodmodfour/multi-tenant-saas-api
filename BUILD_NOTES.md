@@ -2,7 +2,7 @@
 
 ## Current state
 
-Tickets 000, 001, 002, and 003 are complete. The repository now has the initial Python 3.12 `src/` layout, packaging configuration, documentation placeholders, local placeholder configuration, a Makefile, a basic import test, a minimal FastAPI application shell, the first domain/schema contracts, and the initial PostgreSQL persistence foundation.
+Tickets 000, 001, 002, 003, and 004 are complete. The repository now has the initial Python 3.12 `src/` layout, packaging configuration, documentation placeholders, local placeholder configuration, a Makefile, a basic import test, a minimal FastAPI application shell, the first domain/schema contracts, the initial PostgreSQL persistence foundation, and a repository layer that owns SQLAlchemy business data access.
 
 Implemented application behaviour currently includes:
 
@@ -23,8 +23,11 @@ Implemented domain/schema/persistence contracts currently include:
 - SQLAlchemy ORM models for users, organisations, organisation memberships, projects, API keys, audit events, and idempotency records
 - Alembic configuration and initial migration for the PostgreSQL schema
 - useful tenant-scoped indexes and uniqueness constraints, including organisation/user membership uniqueness and idempotency scoping indexes
+- repository classes for users, organisations, memberships, projects, API keys, audit events, and idempotency records
+- tenant-scoped repository methods for membership lists, projects, API key management, audit event reads, and idempotency lookups
+- last-owner support queries through the membership repository
 
-Repository methods, authentication workflows, RBAC enforcement, tenant isolation at service/API level, audit logging integration, idempotency behaviour, readiness checks, metrics, Docker, and CI are not implemented yet.
+Authentication workflows, RBAC enforcement, tenant isolation at service/API level, audit logging integration, idempotency replay behaviour, readiness checks, metrics, Docker, and CI are not implemented yet.
 
 ## Quality gates
 
@@ -55,25 +58,24 @@ The committed `example.env` uses local placeholder values only and is not suitab
 
 ## Latest cycle notes
 
-Implemented Ticket 003:
+Implemented Ticket 004:
 
-- added SQLAlchemy, asyncpg, and Alembic dependencies
-- added `multi_tenant_saas_api.database` with shared metadata naming conventions, ORM models, and async engine/session factory helpers
-- added `SAAS_API_DATABASE_URL` to settings with a local placeholder PostgreSQL async URL
-- modelled the required tables: `users`, `organisations`, `organisation_memberships`, `projects`, `api_keys`, `audit_events`, and `idempotency_records`
-- included hashed-storage fields (`password_hash`, `key_hash`) and did not add raw password/API key persistence fields
-- added tenant-scoped indexes, uniqueness constraints, nullable audit organisation support, and scoped idempotency uniqueness indexes
-- added Alembic configuration and initial PostgreSQL migration at `alembic/versions/0001_initial_schema.py`
-- added tests for model metadata, constraints/indexes, secret-safe storage fields, async engine/session configuration, and offline Alembic SQL rendering
-- updated README configuration/current-status/persistence notes
+- added `multi_tenant_saas_api.repositories` with repository classes for users, organisations, memberships, projects, API keys, audit events, and idempotency records
+- added create/get/list/update/delete-style methods required for the current domain model while keeping SQLAlchemy statement construction inside the repository layer
+- added user-scoped organisation listing, organisation-scoped membership/project/API key/audit queries, and principal/method/path/key-scoped idempotency lookups
+- added membership repository helpers for owner counts, other-owner checks, and last-owner detection to support later RBAC workflows
+- added soft-delete support at the project repository level using the existing `deleted_at` column
+- kept password and API key persistence secret-safe by accepting/storing only `password_hash` and `key_hash` values in repositories
+- added repository tests using a fake async session to verify created ORM objects, scoped SQL statement construction, mutation methods, secret-safe fields, idempotency scoping, and last-owner helper behaviour
+- updated README current-status and persistence notes to describe the repository layer
 
 Limitations:
 
-- the persistence layer defines models and migrations only; repository methods and business workflows are planned for Ticket 004 and later tickets
+- repositories do not commit transactions; future services/routes will own unit-of-work boundaries
+- repository tests validate behaviour and SQL statement construction with a fake async session; full online PostgreSQL integration remains future work once local Docker Compose/CI database infrastructure is added
+- authentication workflows, password hashing, token handling, RBAC checks, API key authentication, audit service integration, and idempotency replay handling remain future tickets
 - no application routes currently open database sessions
-- no local PostgreSQL or Docker Compose stack is included yet; running Alembic online requires a separately available database until Ticket 016
-- password hashing, token authentication, RBAC checks, API key authentication, audit service integration, and idempotency replay handling remain future tickets
 
 ## Next recommended ticket
 
-Ticket 004.
+Ticket 005.
