@@ -385,7 +385,7 @@ Commit when complete.
 
 ## 008 — Add organisation API
 
-Status: TODO
+Status: DONE
 
 Implement routes:
 

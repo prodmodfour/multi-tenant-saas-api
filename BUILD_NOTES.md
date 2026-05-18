@@ -2,7 +2,7 @@
 
 ## Current state
 
-Tickets 000 through 007 are complete. The repository now has the initial Python 3.12 `src/` layout, packaging configuration, documentation placeholders, local placeholder configuration, a Makefile, a basic import test, a FastAPI application shell, the first domain/schema contracts, the initial PostgreSQL persistence foundation, a repository layer that owns SQLAlchemy business data access, authentication utility services, auth API routes for the local demo identity workflow, and RBAC/tenant-context services for protected business workflows.
+Tickets 000 through 008 are complete. The repository now has the initial Python 3.12 `src/` layout, packaging configuration, documentation placeholders, local placeholder configuration, a Makefile, a basic import test, a FastAPI application shell, the first domain/schema contracts, the initial PostgreSQL persistence foundation, a repository layer that owns SQLAlchemy business data access, authentication utility services, auth API routes for the local demo identity workflow, RBAC/tenant-context services for protected business workflows, and the first tenant-scoped organisation API.
 
 Implemented application behaviour currently includes:
 
@@ -20,6 +20,10 @@ Implemented application behaviour currently includes:
 - current-principal resolution from bearer tokens into secret-safe principal DTOs
 - RBAC tenant-context creation with organisation lookup, membership lookup, role permissions, and explicit not-found/access-denied/permission-denied service errors
 - last-owner protection helper for future member removal/downgrade workflows
+- `POST /orgs` for bearer-token-authenticated organisation creation, generated-or-explicit unique slugs, creator owner membership creation, and an `organisation.created` audit event
+- `GET /orgs` for membership-scoped organisation listing with `limit`/`offset` pagination metadata
+- `GET /orgs/{org_id}` for tenant-member organisation reads
+- `PATCH /orgs/{org_id}` for owner/admin organisation metadata updates, unique slug enforcement, member/viewer denial, and an `organisation.updated` audit event with secret-safe changed-field metadata
 
 Implemented domain/schema/persistence contracts currently include:
 
@@ -39,8 +43,9 @@ Implemented domain/schema/persistence contracts currently include:
 - bearer access token creation/validation utilities using a local placeholder JWT signing secret setting
 - a typed authenticated user principal model used by token validation
 - RBAC service DTOs for `CurrentPrincipal` and `TenantContext`
+- organisation API service DTOs for public organisation responses, paginated organisation lists, and creator owner membership creation results
 
-Organisation/project/member/API-key routes, broader audit logging integration, idempotency replay behaviour, readiness checks, metrics, Docker, and CI are not implemented yet.
+Project/member/API-key routes, audit log read APIs, idempotency replay behaviour, readiness checks, metrics, Docker, and CI are not implemented yet.
 
 ## Quality gates
 
@@ -71,24 +76,26 @@ The committed `example.env` uses local placeholder values only and is not suitab
 
 ## Latest cycle notes
 
-Implemented Ticket 007:
+Implemented Ticket 008:
 
-- added `multi_tenant_saas_api.services.rbac` with `PrincipalResolverService`, `RBACService`, secret-safe `CurrentPrincipal`, and `TenantContext`
-- added current-principal resolution that validates bearer access tokens, loads active users through the repository layer, and collapses invalid/expired/missing/inactive users into a safe authentication error
-- added tenant-context lookup that loads organisations and memberships through repositories, grants immutable role permissions, and raises explicit organisation-not-found, tenant-access-denied, and permission-denied service errors
-- added service-level last-owner protection for member removals or role changes away from `owner`
-- added FastAPI dependency helpers for shared bearer-token extraction, RBAC service construction, and current-principal resolution for future protected routes
-- refactored `GET /me` internals to reuse the principal resolver while preserving safe bearer-token failure behaviour and avoiding password-hash exposure
-- documented the role model and tenant access policy in `README.md` and `docs/README.md`
-- added service tests covering current-principal resolution, owner/admin/member/viewer permission behaviour, unknown organisations, non-member rejection, and last-owner protection
+- added `multi_tenant_saas_api.services.organisations` with organisation creation, listing, detail, and update workflows behind the service layer
+- added `multi_tenant_saas_api.routes.organisations` and registered `POST /orgs`, `GET /orgs`, `GET /orgs/{org_id}`, and `PATCH /orgs/{org_id}` in the FastAPI app
+- added a dependency constructor for the organisation workflow service while continuing to resolve current principals through the existing RBAC dependency stack
+- made organisation creation generate a slug from the name when omitted, reject duplicate slugs, create an owner membership for the creator, commit atomically, and record a secret-safe `organisation.created` audit event
+- made organisation listing use repository membership-scoped queries and pagination metadata so users only see organisations where they are members
+- made organisation reads enforce tenant membership and `read_organisation` permission through the RBAC service
+- made organisation updates enforce tenant membership and `update_organisation` permission, allow owner/admin roles, deny member/viewer roles, reject duplicate slugs, and record secret-safe `organisation.updated` audit events
+- documented the implemented organisation API, slug uniqueness behaviour, and current limitations in `README.md` and `docs/README.md`
+- added API tests covering create org, creator owner membership, membership-scoped listing, allowed owner/admin updates, denied member/viewer updates, duplicate slug conflicts, cross-tenant fetch denial, and organisation audit events
 
 Limitations:
 
-- Tenant-scoped organisation, membership, project, API-key, and audit routes are not implemented yet, so the new RBAC services are groundwork for future tickets rather than broadly exposed API behaviour.
+- Organisation member management endpoints are still future work; only the implicit creator owner membership is created by the organisation API.
+- Project routes, API key management, audit log read routes, and idempotency replay support are not implemented yet.
 - API key authentication remains a future ticket; current-principal resolution supports user bearer tokens only.
 - The committed JWT secret is a local placeholder only and is not suitable for production.
-- Authentication audit events currently use empty metadata to avoid accidental secret or private-data leakage.
+- Organisation audit metadata intentionally contains no passwords, tokens, raw API keys, or private authentication material.
 
 ## Next recommended ticket
 
-Ticket 008.
+Ticket 009.

@@ -56,11 +56,12 @@ The project currently includes the repository skeleton, a minimal FastAPI applic
 - signed bearer access token creation/validation utilities and a typed authenticated principal model
 - request-scoped database session dependency wiring for API workflows
 - auth service workflows and routes for registration, login, and current-user lookup
-- `POST /auth/register`, `POST /auth/login`, and `GET /me`
-- successful registration/login audit event writes with secret-safe metadata
+- organisation service workflows and routes for tenant creation, membership-scoped listing, detail reads, and owner/admin metadata updates
+- `POST /auth/register`, `POST /auth/login`, `GET /me`, `POST /orgs`, `GET /orgs`, `GET /orgs/{org_id}`, and `PATCH /orgs/{org_id}`
+- successful registration/login and organisation create/update audit event writes with secret-safe metadata
 - documentation and decisions directories
 
-Organisation/project/member/API-key routes, broader audit integration, idempotency replay behaviour, readiness checks, metrics, Docker, and CI are intentionally not implemented yet; they will be added by later build tickets. The RBAC services are now available for those future business routes, but most tenant-scoped API endpoints are not wired yet.
+Project/member/API-key routes, broader audit read integration, idempotency replay behaviour, readiness checks, metrics, Docker, and CI are intentionally not implemented yet; they will be added by later build tickets. The RBAC services are now wired into the organisation API and remain available for future tenant-scoped routes.
 
 ## Requirements
 
@@ -124,6 +125,15 @@ Auth endpoints:
 
 Password hashes and raw passwords are never returned by these endpoints. Registration and successful login create nullable-organisation audit events with empty, secret-safe metadata.
 
+Organisation endpoints:
+
+- `POST /orgs` — requires a bearer token, creates an organisation, derives a slug from the name when one is not supplied, enforces unique slugs, makes the creator an `owner`, and records a secret-safe audit event.
+- `GET /orgs` — requires a bearer token and returns only organisations where the current user has a membership, with `limit`/`offset` pagination metadata.
+- `GET /orgs/{org_id}` — requires tenant membership and `read_organisation` permission.
+- `PATCH /orgs/{org_id}` — requires tenant membership and `update_organisation` permission, so `owner` and `admin` members may update metadata while `member` and `viewer` roles are denied.
+
+Organisation names are not globally unique; duplicate names are allowed when slugs differ. Organisation slugs are globally unique tenant identifiers.
+
 ## Role model and tenant access policy
 
 Organisations are the tenant boundary. Business workflows must resolve a current authenticated principal, load the user's membership for the target organisation, and enforce permissions before accessing tenant-owned data.
@@ -135,11 +145,11 @@ Organisations are the tenant boundary. Business workflows must resolve a current
 | `member` | Read organisation metadata and read/write projects. |
 | `viewer` | Read organisation metadata and read projects only. |
 
-The RBAC service resolves bearer tokens into secret-safe current principals, builds tenant contexts from organisation memberships, raises explicit not-found/access-denied/permission-denied errors, and protects the invariant that an organisation must always have at least one owner. Future tenant-scoped routes must use these services instead of performing permission checks in route handlers.
+The RBAC service resolves bearer tokens into secret-safe current principals, builds tenant contexts from organisation memberships, raises explicit not-found/access-denied/permission-denied errors, and protects the invariant that an organisation must always have at least one owner. The organisation API uses these services for tenant-scoped reads and updates; future tenant-scoped routes must do the same instead of performing permission checks in route handlers.
 
 ## Domain, schema, and persistence contracts
 
-The current domain layer defines organisation roles (`owner`, `admin`, `member`, `viewer`), service-level permissions, project statuses, and audit action names. The Pydantic schemas define the API data contracts, while service workflows own registration, login, current-user business logic, and RBAC/tenant-context checks for implemented or upcoming protected endpoints.
+The current domain layer defines organisation roles (`owner`, `admin`, `member`, `viewer`), service-level permissions, project statuses, and audit action names. The Pydantic schemas define the API data contracts, while service workflows own registration, login, current-user business logic, organisation tenant workflows, and RBAC/tenant-context checks for implemented or upcoming protected endpoints.
 
 Password fields use secret-safe request types, response schemas do not include password hashes, and API key metadata schemas do not include raw keys or key hashes. The password utility enforces a configurable local policy and hashes new passwords with pwdlib's recommended Argon2id hasher before persistence. The bearer-token utility signs short-lived local demo access tokens and validates them into an authenticated user principal for `GET /me`. Production systems need real secret management, TLS, token/key rotation, monitoring, and hardened identity review.
 
