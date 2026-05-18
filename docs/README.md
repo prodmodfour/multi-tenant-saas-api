@@ -4,7 +4,7 @@ Project documentation will be expanded as implementation tickets add architectur
 
 ## Role model
 
-Organisations are the tenant boundary. Tenant-scoped business services must resolve the current authenticated principal, load the principal's organisation membership, and enforce role permissions before reading or mutating tenant-owned data.
+Organisations are the tenant boundary. User-driven tenant-scoped business services must resolve the current authenticated principal, load the principal's organisation membership, and enforce role permissions before reading or mutating tenant-owned data. Project services additionally accept active organisation-scoped API keys and require the key's organisation to match the route tenant.
 
 Roles:
 
@@ -47,4 +47,14 @@ Implemented project endpoints:
 - `PATCH /orgs/{org_id}/projects/{project_id}`: updates supplied project fields after `write_projects` checks and supports clearing `description` with `null`.
 - `DELETE /orgs/{org_id}/projects/{project_id}`: soft-deletes a project after `write_projects` checks, excluding it from default project reads/lists.
 
-Project create, update, and delete workflows write `project.created`, `project.updated`, and `project.deleted` audit events with secret-safe metadata only.
+Project create, update, and delete workflows write `project.created`, `project.updated`, and `project.deleted` audit events with secret-safe metadata only. Project endpoints accept either a user bearer access token with the required project permission or an active API key scoped to the same organisation. Cross-tenant API key access is denied.
+
+## API key API
+
+Implemented API key endpoints:
+
+- `POST /orgs/{org_id}/api-keys`: requires tenant membership and `manage_api_keys`, so only `owner` and `admin` members can create API keys. The response returns the raw key exactly once and persists only a deterministic key hash plus a short identification prefix.
+- `GET /orgs/{org_id}/api-keys`: requires `manage_api_keys` and returns paginated metadata only; raw keys and key hashes are never included.
+- `DELETE /orgs/{org_id}/api-keys/{api_key_id}`: requires `manage_api_keys`, revokes the key, and writes an `api_key.revoked` audit event with secret-safe metadata.
+
+API keys authenticate with `Authorization: Bearer <raw_key>` on project endpoints only. They cannot manage members or create/list/revoke API keys. Revoked keys are excluded from authentication lookup.

@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
-from multi_tenant_saas_api.dependencies import get_current_principal, get_project_api_service
+from multi_tenant_saas_api.dependencies import get_project_api_service, get_project_principal
 from multi_tenant_saas_api.domain import ProjectSortField, ProjectStatus, SortDirection
 from multi_tenant_saas_api.schemas.common import PaginationMeta
 from multi_tenant_saas_api.schemas.projects import (
@@ -15,9 +15,9 @@ from multi_tenant_saas_api.schemas.projects import (
     ProjectUpdateRequest,
 )
 from multi_tenant_saas_api.services import (
-    CurrentPrincipal,
     OrganisationNotFoundError,
     PermissionDeniedError,
+    ProjectPrincipal,
     TenantAccessDeniedError,
 )
 from multi_tenant_saas_api.services.projects import (
@@ -42,10 +42,10 @@ def create_project_router() -> APIRouter:
     async def create_project(
         organisation_id: UUID,
         payload: ProjectCreateRequest,
-        principal: Annotated[CurrentPrincipal, Depends(get_current_principal)],
+        principal: Annotated[ProjectPrincipal, Depends(get_project_principal)],
         project_service: Annotated[ProjectAPIService, Depends(get_project_api_service)],
     ) -> ProjectResponse:
-        """Create a tenant-scoped project for member/admin/owner roles."""
+        """Create a tenant-scoped project for users with write access or API keys."""
 
         try:
             project = await project_service.create_project(
@@ -71,7 +71,7 @@ def create_project_router() -> APIRouter:
     )
     async def list_projects(
         organisation_id: UUID,
-        principal: Annotated[CurrentPrincipal, Depends(get_current_principal)],
+        principal: Annotated[ProjectPrincipal, Depends(get_project_principal)],
         project_service: Annotated[ProjectAPIService, Depends(get_project_api_service)],
         limit: Annotated[int, Query(ge=1, le=100)] = 50,
         offset: Annotated[int, Query(ge=0)] = 0,
@@ -110,7 +110,7 @@ def create_project_router() -> APIRouter:
     async def get_project(
         organisation_id: UUID,
         project_id: UUID,
-        principal: Annotated[CurrentPrincipal, Depends(get_current_principal)],
+        principal: Annotated[ProjectPrincipal, Depends(get_project_principal)],
         project_service: Annotated[ProjectAPIService, Depends(get_project_api_service)],
     ) -> ProjectResponse:
         """Return a tenant-scoped project after membership and read checks."""
@@ -141,10 +141,10 @@ def create_project_router() -> APIRouter:
         organisation_id: UUID,
         project_id: UUID,
         payload: ProjectUpdateRequest,
-        principal: Annotated[CurrentPrincipal, Depends(get_current_principal)],
+        principal: Annotated[ProjectPrincipal, Depends(get_project_principal)],
         project_service: Annotated[ProjectAPIService, Depends(get_project_api_service)],
     ) -> ProjectResponse:
-        """Update a tenant-scoped project for member/admin/owner roles."""
+        """Update a tenant-scoped project for users with write access or API keys."""
 
         description_was_provided = "description" in payload.model_fields_set
         try:
@@ -176,10 +176,10 @@ def create_project_router() -> APIRouter:
     async def delete_project(
         organisation_id: UUID,
         project_id: UUID,
-        principal: Annotated[CurrentPrincipal, Depends(get_current_principal)],
+        principal: Annotated[ProjectPrincipal, Depends(get_project_principal)],
         project_service: Annotated[ProjectAPIService, Depends(get_project_api_service)],
     ) -> Response:
-        """Soft-delete a tenant-scoped project for member/admin/owner roles."""
+        """Soft-delete a tenant-scoped project for users with write access or API keys."""
 
         try:
             await project_service.delete_project(

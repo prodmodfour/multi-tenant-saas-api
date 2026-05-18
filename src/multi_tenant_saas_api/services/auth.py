@@ -130,6 +130,7 @@ class PrincipalType(StrEnum):
     """Supported authenticated principal categories."""
 
     USER = "user"
+    API_KEY = "api_key"
 
 
 @dataclass(frozen=True, slots=True)

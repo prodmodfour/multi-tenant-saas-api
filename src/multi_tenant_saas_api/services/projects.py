@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from multi_tenant_saas_api.database import Project
 from multi_tenant_saas_api.domain import (
+    APIKeyID,
     AuditAction,
     OrganisationID,
     Permission,
@@ -26,7 +27,12 @@ from multi_tenant_saas_api.domain import (
     UserID,
 )
 from multi_tenant_saas_api.repositories import AuditEventRepository, ProjectRepository
-from multi_tenant_saas_api.services.rbac import CurrentPrincipal, RBACService
+from multi_tenant_saas_api.services.api_keys import APIKeyPrincipal, ProjectPrincipal
+from multi_tenant_saas_api.services.rbac import (
+    CurrentPrincipal,
+    RBACService,
+    TenantAccessDeniedError,
+)
 
 
 class ProjectAPIServiceError(ValueError):
@@ -62,6 +68,9 @@ class ProjectList:
     total: int
 
 
+_API_KEY_PROJECT_PERMISSIONS = frozenset({Permission.READ_PROJECTS, Permission.WRITE_PROJECTS})
+
+
 class ProjectAPIService:
     """Service layer for organisation-scoped project endpoints."""
 
@@ -85,7 +94,7 @@ class ProjectAPIService:
     async def create_project(
         self,
         *,
-        principal: CurrentPrincipal,
+        principal: ProjectPrincipal,
         organisation_id: UUID | OrganisationID,
         name: str,
         description: str | None,
@@ -94,11 +103,13 @@ class ProjectAPIService:
         """Create a project after tenant and write-project checks."""
 
         organisation_uuid = _uuid_from_organisation_id(organisation_id)
-        await self._rbac.get_tenant_context(
+        await self._require_project_permission(
             principal=principal,
             organisation_id=organisation_uuid,
             required_permission=Permission.WRITE_PROJECTS,
         )
+        actor_user_id = _actor_user_id(principal)
+        actor_api_key_id = _actor_api_key_id(principal)
 
         try:
             project = await self._projects.create(
@@ -106,12 +117,13 @@ class ProjectAPIService:
                 name=name,
                 status=status,
                 description=description,
-                created_by_user_id=_uuid_from_user_id(principal.user_id),
+                created_by_user_id=actor_user_id,
             )
             await self._audit_events.create(
                 action=AuditAction.PROJECT_CREATED,
                 organisation_id=organisation_uuid,
-                actor_user_id=_uuid_from_user_id(principal.user_id),
+                actor_user_id=actor_user_id,
+                actor_api_key_id=actor_api_key_id,
                 target_type="project",
                 target_id=project.id,
                 event_metadata={"project_name": project.name, "status": project.status.value},
@@ -126,7 +138,7 @@ class ProjectAPIService:
     async def list_projects(
         self,
         *,
-        principal: CurrentPrincipal,
+        principal: ProjectPrincipal,
         organisation_id: UUID | OrganisationID,
         limit: int,
         offset: int,
@@ -138,7 +150,7 @@ class ProjectAPIService:
         """List projects after tenant and read-project checks."""
 
         organisation_uuid = _uuid_from_organisation_id(organisation_id)
-        await self._rbac.get_tenant_context(
+        await self._require_project_permission(
             principal=principal,
             organisation_id=organisation_uuid,
             required_permission=Permission.READ_PROJECTS,
@@ -167,7 +179,7 @@ class ProjectAPIService:
     async def get_project(
         self,
         *,
-        principal: CurrentPrincipal,
+        principal: ProjectPrincipal,
         organisation_id: UUID | OrganisationID,
         project_id: UUID | ProjectID,
     ) -> PublicProject:
@@ -184,7 +196,7 @@ class ProjectAPIService:
     async def update_project(
         self,
         *,
-        principal: CurrentPrincipal,
+        principal: ProjectPrincipal,
         organisation_id: UUID | OrganisationID,
         project_id: UUID | ProjectID,
         name: str | None,
@@ -201,6 +213,8 @@ class ProjectAPIService:
             project_id=project_id,
             required_permission=Permission.WRITE_PROJECTS,
         )
+        actor_user_id = _actor_user_id(principal)
+        actor_api_key_id = _actor_api_key_id(principal)
         changed_fields = _provided_update_fields(
             name=name,
             description_was_provided=description_was_provided,
@@ -214,19 +228,20 @@ class ProjectAPIService:
                     name=name,
                     description=description,
                     status=status,
-                    updated_by_user_id=_uuid_from_user_id(principal.user_id),
+                    updated_by_user_id=actor_user_id,
                 )
             else:
                 updated_project = await self._projects.update(
                     project,
                     name=name,
                     status=status,
-                    updated_by_user_id=_uuid_from_user_id(principal.user_id),
+                    updated_by_user_id=actor_user_id,
                 )
             await self._audit_events.create(
                 action=AuditAction.PROJECT_UPDATED,
                 organisation_id=organisation_uuid,
-                actor_user_id=_uuid_from_user_id(principal.user_id),
+                actor_user_id=actor_user_id,
+                actor_api_key_id=actor_api_key_id,
                 target_type="project",
                 target_id=updated_project.id,
                 event_metadata={"changed_fields": changed_fields},
@@ -241,7 +256,7 @@ class ProjectAPIService:
     async def delete_project(
         self,
         *,
-        principal: CurrentPrincipal,
+        principal: ProjectPrincipal,
         organisation_id: UUID | OrganisationID,
         project_id: UUID | ProjectID,
     ) -> None:
@@ -255,16 +270,19 @@ class ProjectAPIService:
             required_permission=Permission.WRITE_PROJECTS,
         )
         project_name = project.name
+        actor_user_id = _actor_user_id(principal)
+        actor_api_key_id = _actor_api_key_id(principal)
 
         try:
             deleted_project = await self._projects.delete(
                 project,
-                updated_by_user_id=_uuid_from_user_id(principal.user_id),
+                updated_by_user_id=actor_user_id,
             )
             await self._audit_events.create(
                 action=AuditAction.PROJECT_DELETED,
                 organisation_id=organisation_uuid,
-                actor_user_id=_uuid_from_user_id(principal.user_id),
+                actor_user_id=actor_user_id,
+                actor_api_key_id=actor_api_key_id,
                 target_type="project",
                 target_id=deleted_project.id,
                 event_metadata={"project_name": project_name},
@@ -277,7 +295,7 @@ class ProjectAPIService:
     async def _get_authorised_project(
         self,
         *,
-        principal: CurrentPrincipal,
+        principal: ProjectPrincipal,
         organisation_id: UUID | OrganisationID,
         project_id: UUID | ProjectID,
         required_permission: Permission,
@@ -285,7 +303,7 @@ class ProjectAPIService:
         """Return a tenant-scoped project after checking the requested permission."""
 
         organisation_uuid = _uuid_from_organisation_id(organisation_id)
-        await self._rbac.get_tenant_context(
+        await self._require_project_permission(
             principal=principal,
             organisation_id=organisation_uuid,
             required_permission=required_permission,
@@ -297,6 +315,29 @@ class ProjectAPIService:
         if project is None:
             raise ProjectNotFoundError("project was not found")
         return project
+
+    async def _require_project_permission(
+        self,
+        *,
+        principal: ProjectPrincipal,
+        organisation_id: UUID | OrganisationID,
+        required_permission: Permission,
+    ) -> None:
+        """Enforce user RBAC or organisation-scoped API key project access."""
+
+        organisation_uuid = _uuid_from_organisation_id(organisation_id)
+        if isinstance(principal, APIKeyPrincipal):
+            if _uuid_from_organisation_id(principal.organisation_id) != organisation_uuid:
+                raise TenantAccessDeniedError("organisation access denied")
+            if required_permission not in _API_KEY_PROJECT_PERMISSIONS:
+                raise TenantAccessDeniedError("organisation access denied")
+            return
+
+        await self._rbac.get_tenant_context(
+            principal=principal,
+            organisation_id=organisation_uuid,
+            required_permission=required_permission,
+        )
 
 
 def _public_project_from_model(project: Project) -> PublicProject:
@@ -337,6 +378,22 @@ def _provided_update_fields(
     return changed_fields
 
 
+def _actor_user_id(principal: ProjectPrincipal) -> UUID | None:
+    """Return the actor user ID for audit fields, if the actor is a user."""
+
+    if isinstance(principal, CurrentPrincipal):
+        return _uuid_from_user_id(principal.user_id)
+    return None
+
+
+def _actor_api_key_id(principal: ProjectPrincipal) -> UUID | None:
+    """Return the actor API key ID for audit fields, if the actor is an API key."""
+
+    if isinstance(principal, APIKeyPrincipal):
+        return _uuid_from_api_key_id(principal.api_key_id)
+    return None
+
+
 def _uuid_from_user_id(user_id: UUID | UserID) -> UUID:
     """Return the runtime UUID value held by a typed user identifier."""
 
@@ -353,6 +410,12 @@ def _uuid_from_project_id(project_id: UUID | ProjectID) -> UUID:
     """Return the runtime UUID value held by a typed project identifier."""
 
     return UUID(str(project_id))
+
+
+def _uuid_from_api_key_id(api_key_id: UUID | APIKeyID) -> UUID:
+    """Return the runtime UUID value held by a typed API key identifier."""
+
+    return UUID(str(api_key_id))
 
 
 __all__ = [

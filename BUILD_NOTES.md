@@ -2,7 +2,7 @@
 
 ## Current state
 
-Tickets 000 through 010 are complete. The repository now has the initial Python 3.12 `src/` layout, packaging configuration, documentation placeholders, local placeholder configuration, a Makefile, a basic import test, a FastAPI application shell, the first domain/schema contracts, the initial PostgreSQL persistence foundation, a repository layer that owns SQLAlchemy business data access, authentication utility services, auth API routes for the local demo identity workflow, RBAC/tenant-context services for protected business workflows, the first tenant-scoped organisation API, organisation membership management API workflows, and tenant-isolated project API workflows.
+Tickets 000 through 011 are complete. The repository now has the initial Python 3.12 `src/` layout, packaging configuration, documentation placeholders, local placeholder configuration, a Makefile, a basic import test, a FastAPI application shell, the first domain/schema contracts, the initial PostgreSQL persistence foundation, a repository layer that owns SQLAlchemy business data access, authentication utility services, auth API routes for the local demo identity workflow, RBAC/tenant-context services for protected business workflows, the first tenant-scoped organisation API, organisation membership management API workflows, tenant-isolated project API workflows, and organisation-scoped API key management plus project endpoint API key authentication.
 
 Implemented application behaviour currently includes:
 
@@ -33,6 +33,11 @@ Implemented application behaviour currently includes:
 - `GET /orgs/{org_id}/projects/{project_id}` for tenant-scoped project reads that combine organisation ID and project ID so cross-tenant project IDs are not accessible
 - `PATCH /orgs/{org_id}/projects/{project_id}` for member/admin/owner project updates, nullable description clearing, viewer write denial, and a `project.updated` audit event
 - `DELETE /orgs/{org_id}/projects/{project_id}` for member/admin/owner soft deletes, viewer write denial, default read/list exclusion, and a `project.deleted` audit event
+- `POST /orgs/{org_id}/api-keys` for owner/admin API key creation with one-time raw key response, hashed key persistence, stored prefix metadata, member/viewer denial, and an `api_key.created` audit event
+- `GET /orgs/{org_id}/api-keys` for owner/admin paginated API key metadata listing that never returns raw keys or key hashes
+- `DELETE /orgs/{org_id}/api-keys/{api_key_id}` for owner/admin API key revocation, revoked-key authentication denial, and an `api_key.revoked` audit event
+- project endpoint authentication using either user bearer tokens with RBAC membership checks or active organisation-scoped API keys for project read/write access
+- API key tenant isolation so keys cannot access other organisations and cannot manage members or API keys because those routes continue to require user access tokens
 
 Implemented domain/schema/persistence contracts currently include:
 
@@ -50,13 +55,15 @@ Implemented domain/schema/persistence contracts currently include:
 - password policy checks backed by `SAAS_API_PASSWORD_MIN_LENGTH`
 - password hashing and verification utilities using pwdlib's recommended Argon2id hasher
 - bearer access token creation/validation utilities using a local placeholder JWT signing secret setting
-- a typed authenticated user principal model used by token validation
+- typed authenticated user and API key principal models used by token/API key validation
+- deterministic high-entropy API key generation and SHA-256 hashing utilities that persist only key hashes plus prefixes
 - RBAC service DTOs for `CurrentPrincipal` and `TenantContext`
 - organisation API service DTOs for public organisation responses, paginated organisation lists, and creator owner membership creation results
 - membership API service DTOs for public membership responses, embedded public user summaries, and paginated membership lists
 - project API service DTOs for public project responses and paginated project lists
+- API key API service DTOs for public key metadata, one-time creation responses, revocation responses, paginated key lists, and API key principals
 
-API key management routes, audit log read APIs, idempotency replay behaviour, readiness checks, metrics, Docker, and CI are not implemented yet.
+Audit log read APIs, idempotency replay behaviour, readiness checks, metrics, Docker, and CI are not implemented yet.
 
 ## Quality gates
 
@@ -87,26 +94,28 @@ The committed `example.env` uses local placeholder values only and is not suitab
 
 ## Latest cycle notes
 
-Implemented Ticket 010:
+Implemented Ticket 011:
 
-- added `multi_tenant_saas_api.services.projects` with project create, list, get, update, and soft-delete workflows behind the service layer
-- added `multi_tenant_saas_api.routes.projects` and registered `POST /orgs/{org_id}/projects`, `GET /orgs/{org_id}/projects`, `GET /orgs/{org_id}/projects/{project_id}`, `PATCH /orgs/{org_id}/projects/{project_id}`, and `DELETE /orgs/{org_id}/projects/{project_id}` in the FastAPI app
-- added a dependency constructor for the project workflow service while continuing to resolve current principals through the existing RBAC dependency stack
-- added project sort domain options for `created_at`, `name`, and `status` plus `asc`/`desc` sort directions
-- extended the project repository list query with validated sorting while preserving organisation scoping, status filtering, name search, and soft-delete exclusion
-- made project creation, update, and deletion require tenant membership plus `write_projects`, allowing `owner`, `admin`, and `member` roles while denying `viewer`
-- made project listing and detail reads require tenant membership plus `read_projects`, so `viewer` can read projects but all project lookups remain scoped by organisation ID
-- recorded secret-safe `project.created`, `project.updated`, and `project.deleted` audit events without passwords, tokens, bearer credentials, raw API keys, or private authentication material
-- documented the implemented project API, filters, sorting, soft-delete behaviour, RBAC policy, and tenant-isolation behaviour in `README.md` and `docs/README.md`
-- added API tests covering project create/read/update/delete, tenant isolation, viewer read allowed/write denied, pagination, filtering, sorting, audit events, and absence of password leakage in project responses
+- added `multi_tenant_saas_api.services.api_keys` with API key creation, metadata listing, revocation, deterministic hashing, high-entropy raw key generation, and API key-aware project principal resolution behind the service layer
+- added `multi_tenant_saas_api.routes.api_keys` and registered `POST /orgs/{org_id}/api-keys`, `GET /orgs/{org_id}/api-keys`, and `DELETE /orgs/{org_id}/api-keys/{api_key_id}` in the FastAPI app
+- added dependency constructors for API key management and API key-aware project authentication while leaving organisation, membership, and API key management routes user-token-only
+- extended project route authentication to accept either a user bearer access token or an active organisation-scoped API key
+- made API key creation/list/revoke require tenant membership plus `manage_api_keys`, allowing `owner` and `admin` users while denying `member`, `viewer`, non-members, and API key principals
+- generated raw API keys only for the one-time create response, stored only SHA-256 key hashes plus short prefixes, and ensured list/revoke responses never include raw key material or key hashes
+- updated API key authentication to ignore revoked keys, update `last_used_at` on successful key authentication, and reject cross-tenant project access
+- recorded secret-safe `api_key.created` and `api_key.revoked` audit events without passwords, password hashes, bearer tokens, raw API keys, key hashes, or private authentication material
+- updated project audit writes so API key-driven project mutations record `actor_api_key_id` instead of a user actor
+- documented API key management, API key project authentication, tenant isolation, and raw-key handling in `README.md` and `docs/README.md`
+- added API tests covering one-time raw key create response behaviour, hashed persistence, metadata-only listing, revocation, revoked-key denial, API key project read/write access, cross-tenant denial, and API key inability to manage members or API keys
 
 Limitations:
 
-- API key management, audit log read routes, and idempotency replay support are not implemented yet.
-- API key authentication remains a future ticket; current-principal resolution supports user bearer tokens only.
+- Audit log read routes and idempotency replay support are not implemented yet.
+- API keys currently have a fixed project read/write capability for their owning organisation; fine-grained API key scopes are not implemented.
+- API key hashes use deterministic SHA-256 over high-entropy generated keys for demo lookup; production systems may add a dedicated secret pepper or managed key service.
 - The committed JWT secret is a local placeholder only and is not suitable for production.
-- Project audit metadata intentionally contains no passwords, password hashes, bearer tokens, raw API keys, or private authentication material.
+- API key audit metadata intentionally contains no passwords, password hashes, bearer tokens, raw API keys, key hashes, or private authentication material.
 
 ## Next recommended ticket
 
-Ticket 011.
+Ticket 012.

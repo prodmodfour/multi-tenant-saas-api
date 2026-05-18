@@ -10,9 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from multi_tenant_saas_api.config import Settings
 from multi_tenant_saas_api.services import (
     AccessTokenService,
+    APIKeyAPIService,
+    APIKeyAuthenticationError,
+    APIKeyAuthenticationService,
     CurrentPrincipal,
     PasswordHashingService,
     PrincipalResolutionError,
+    ProjectPrincipal,
     RBACService,
 )
 from multi_tenant_saas_api.services.auth_api import AuthAPIService
@@ -83,6 +87,24 @@ def get_membership_api_service(
     return MembershipAPIService(session=session, rbac_service=rbac_service)
 
 
+def get_api_key_api_service(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    rbac_service: Annotated[RBACService, Depends(get_rbac_service)],
+) -> APIKeyAPIService:
+    """Build the API key management workflow service for one request."""
+
+    return APIKeyAPIService(session=session, rbac_service=rbac_service)
+
+
+def get_api_key_authentication_service(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    rbac_service: Annotated[RBACService, Depends(get_rbac_service)],
+) -> APIKeyAuthenticationService:
+    """Build API key-aware project principal resolution for one request."""
+
+    return APIKeyAuthenticationService(session=session, rbac_service=rbac_service)
+
+
 def get_project_api_service(
     session: Annotated[AsyncSession, Depends(get_session)],
     rbac_service: Annotated[RBACService, Depends(get_rbac_service)],
@@ -106,12 +128,29 @@ async def get_current_principal(
     bearer_token: Annotated[str, Depends(require_bearer_token)],
     rbac_service: Annotated[RBACService, Depends(get_rbac_service)],
 ) -> CurrentPrincipal:
-    """Resolve the current active principal for protected business routes."""
+    """Resolve the current active user principal for protected business routes."""
 
     try:
         return await rbac_service.resolve_current_principal(bearer_token=bearer_token)
     except PrincipalResolutionError as exc:
         raise _unauthorized("invalid or expired access token") from exc
+
+
+async def get_project_principal(
+    bearer_token: Annotated[str, Depends(require_bearer_token)],
+    api_key_authentication_service: Annotated[
+        APIKeyAuthenticationService,
+        Depends(get_api_key_authentication_service),
+    ],
+) -> ProjectPrincipal:
+    """Resolve a user access token or active API key for project routes."""
+
+    try:
+        return await api_key_authentication_service.resolve_project_principal(
+            bearer_token=bearer_token
+        )
+    except APIKeyAuthenticationError as exc:
+        raise _unauthorized("invalid or expired access token or API key") from exc
 
 
 def _unauthorized(detail: str) -> HTTPException:
@@ -125,11 +164,14 @@ def _unauthorized(detail: str) -> HTTPException:
 
 
 __all__ = [
+    "get_api_key_api_service",
+    "get_api_key_authentication_service",
     "get_auth_api_service",
     "get_current_principal",
     "get_membership_api_service",
     "get_organisation_api_service",
     "get_project_api_service",
+    "get_project_principal",
     "get_rbac_service",
     "get_session",
     "get_settings_from_app",

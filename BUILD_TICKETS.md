@@ -499,7 +499,7 @@ Commit when complete.
 
 ## 011 — Add API key management
 
-Status: TODO
+Status: DONE
 
 Implement routes:
 
