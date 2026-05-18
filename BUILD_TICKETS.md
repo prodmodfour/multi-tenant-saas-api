@@ -88,7 +88,7 @@ Commit when complete.
 
 ## 002 — Define domain model, roles, permissions, and API schemas
 
-Status: TODO
+Status: DONE
 
 Implement domain definitions for:
 

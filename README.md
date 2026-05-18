@@ -44,9 +44,11 @@ The project currently includes the repository skeleton and a minimal FastAPI app
 - structured JSON logging with request ID context
 - `X-Request-ID` propagation
 - `GET /healthz` liveness endpoint
+- domain identifiers, organisation roles, permission mapping, project statuses, and audit actions
+- Pydantic request/response schemas for the planned auth, organisation, membership, project, API key, audit, and pagination contracts
 - documentation and decisions directories
 
-Persistence, authentication, RBAC, tenant isolation, audit logging, idempotency, metrics, Docker, and CI are intentionally not implemented yet; they will be added by later build tickets.
+Persistence, authentication workflows, RBAC enforcement, tenant isolation, audit logging integration, idempotency, metrics, Docker, and CI are intentionally not implemented yet; they will be added by later build tickets.
 
 ## Requirements
 
@@ -90,6 +92,12 @@ Configuration uses environment variables prefixed with `SAAS_API_`. See `example
 OpenAPI documentation is disabled by default to model a safer production posture. Enable it only for local exploration or explicitly configured demo environments.
 
 Do not copy real credentials into committed files. If you create a local `.env`, keep it untracked.
+
+## Domain and schema contracts
+
+The current domain layer defines organisation roles (`owner`, `admin`, `member`, `viewer`), service-level permissions, project statuses, and audit action names. The Pydantic schemas define the planned API data contracts only; the backing routes and persistence are implemented in later tickets.
+
+Password fields use secret-safe request types, response schemas do not include password hashes, and API key metadata schemas do not include raw keys or key hashes. Raw API key material is represented only by the intentional one-time API key creation response schema.
 
 ## Documentation
 

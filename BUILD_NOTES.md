@@ -2,7 +2,7 @@
 
 ## Current state
 
-Tickets 000 and 001 are complete. The repository now has the initial Python 3.12 `src/` layout, packaging configuration, documentation placeholders, local placeholder configuration, a Makefile, a basic import test, and a minimal FastAPI application shell.
+Tickets 000, 001, and 002 are complete. The repository now has the initial Python 3.12 `src/` layout, packaging configuration, documentation placeholders, local placeholder configuration, a Makefile, a basic import test, a minimal FastAPI application shell, and the first domain/schema contracts.
 
 Implemented application behaviour currently includes:
 
@@ -13,7 +13,15 @@ Implemented application behaviour currently includes:
 - `X-Request-ID` propagation and request-scoped log context
 - `GET /healthz`
 
-Persistence, authentication, RBAC, tenant isolation, audit logging, idempotency, metrics, Docker, and CI are not implemented yet.
+Implemented domain/schema contracts currently include:
+
+- typed domain identifiers for users, organisations, memberships, projects, API keys, and audit events
+- organisation roles (`owner`, `admin`, `member`, `viewer`) and immutable permission mapping helpers
+- project statuses and audit action enums
+- Pydantic schemas for planned auth, current-user, organisation, membership, project, API key, audit event, and pagination API contracts
+- secret-safe request schemas for passwords and response schemas that omit password hashes, API key hashes, and raw API key material except the intentional one-time API key creation response schema
+
+Persistence, authentication workflows, RBAC enforcement, tenant isolation, audit logging integration, idempotency, metrics, Docker, and CI are not implemented yet.
 
 ## Quality gates
 
@@ -44,23 +52,21 @@ The committed `example.env` uses local placeholder values only and is not suitab
 
 ## Latest cycle notes
 
-Implemented Ticket 001:
+Implemented Ticket 002:
 
-- added FastAPI and pydantic-settings dependencies, plus httpx for API tests
-- added app factory and ASGI entrypoint
-- added settings loaded from `SAAS_API_` environment variables
-- disabled `/docs`, `/redoc`, and `/openapi.json` by default
-- added structured JSON logging setup with request ID context
-- added request middleware that propagates valid inbound `X-Request-ID` values or generates one when absent
-- added `GET /healthz` with application name, version, environment, and status
-- added API tests for health, request ID propagation, docs disabled by default, docs enabled when configured, and environment-backed settings
-- updated README configuration documentation
+- added `multi_tenant_saas_api.domain` with typed ID definitions, organisation roles, permissions, role-to-permission mapping helpers, project statuses, and audit actions
+- added Pydantic schemas for registration, login, current user, organisations, memberships, projects, API keys, audit events, and pagination metadata
+- used `SecretStr` for password request fields and added email validation support through the public `email-validator` dependency
+- kept password hashes and API key hashes out of response schemas; raw API key material appears only in the one-time API key creation response schema
+- added tests for role validation, permission mapping, schema validation, invalid emails, short passwords, invalid project statuses, invalid roles, invalid slugs, pagination metadata bounds, and secret-field exclusions
+- updated README current-status and domain/schema contract documentation
 
 Limitations:
 
-- no database, readiness check, metrics, authentication, RBAC, tenant isolation, business APIs, audit logging, or idempotency support yet
-- structured request logs intentionally include method, path, status code, duration, and request ID only; request/response bodies and authentication material are not logged
+- schemas define planned API contracts only; backing persistence, services, repositories, authentication utilities, and routes are not implemented yet
+- password policy enforcement is still schema-level minimum-length validation only; the dedicated password hashing and policy service is planned for Ticket 005
+- RBAC is represented by permission mapping helpers only; tenant context and enforcement are planned for Ticket 007 and later business API tickets
 
 ## Next recommended ticket
 
-Ticket 002.
+Ticket 003.
