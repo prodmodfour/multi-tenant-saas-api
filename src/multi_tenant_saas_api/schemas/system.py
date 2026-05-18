@@ -14,3 +14,21 @@ class HealthResponse(BaseModel):
     app_name: str
     version: str
     environment: str
+
+
+class DependencyReadinessResponse(BaseModel):
+    """Readiness state for one external dependency."""
+
+    model_config = ConfigDict(frozen=True)
+
+    status: Literal["ok", "unavailable"]
+    detail: str
+
+
+class ReadinessResponse(BaseModel):
+    """Response returned by the readiness endpoint."""
+
+    model_config = ConfigDict(frozen=True)
+
+    status: Literal["ready", "not_ready"]
+    checks: dict[str, DependencyReadinessResponse]

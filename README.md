@@ -44,6 +44,7 @@ The project currently includes the repository skeleton, FastAPI application shel
 - structured JSON logging with request ID context
 - `X-Request-ID` propagation
 - `GET /healthz` liveness endpoint
+- `GET /readyz` readiness endpoint with a PostgreSQL `SELECT 1` dependency check
 - domain identifiers, organisation roles, permission mapping, project statuses, and audit actions
 - Pydantic request/response schemas for the planned auth, organisation, membership, project, API key, audit, and pagination contracts
 - async SQLAlchemy engine/session helpers
@@ -65,7 +66,7 @@ The project currently includes the repository skeleton, FastAPI application shel
 - idempotency support for `POST /orgs`, `POST /orgs/{org_id}/projects`, and `POST /orgs/{org_id}/api-keys`, scoped by principal, method, path, request body hash, and organisation where applicable
 - documentation and decisions directories
 
-Readiness checks, metrics, Docker, and CI are intentionally not implemented yet; they will be added by later build tickets. The RBAC services are wired into the organisation, membership, project, API key, audit, and idempotency-aware APIs and remain available for future tenant-scoped routes.
+Prometheus metrics, Docker, and CI are intentionally not implemented yet; they will be added by later build tickets. The RBAC services are wired into the organisation, membership, project, API key, audit, and idempotency-aware APIs and remain available for future tenant-scoped routes.
 
 ## Requirements
 
@@ -119,7 +120,8 @@ Do not copy real credentials into committed files. If you create a local `.env`,
 
 System endpoints:
 
-- `GET /healthz` — liveness check with application metadata.
+- `GET /healthz` — liveness check with application metadata; it does not touch external dependencies.
+- `GET /readyz` — readiness check that executes a minimal PostgreSQL round trip. It returns `200` with `status: "ready"` when the database check succeeds and `503` with `status: "not_ready"` when PostgreSQL is unavailable. The failure response identifies the `postgresql` dependency without exposing database URLs, credentials, or driver exception details.
 
 Auth endpoints:
 
@@ -203,7 +205,7 @@ The initial PostgreSQL schema is managed by Alembic:
 uv run alembic upgrade head
 ```
 
-A local PostgreSQL service is not included until the Docker Compose ticket, so the migration command requires a separately available database or a future Compose stack.
+A local PostgreSQL service is not included until the Docker Compose ticket, so the migration command and `/readyz` require a separately available database or a future Compose stack. If PostgreSQL is unreachable, `/readyz` returns a clear `503` not-ready response.
 
 ## Documentation
 

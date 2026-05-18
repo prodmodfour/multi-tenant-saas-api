@@ -28,6 +28,7 @@ from multi_tenant_saas_api.domain import (
 from multi_tenant_saas_api.repositories import (
     APIKeyRepository,
     AuditEventRepository,
+    DatabaseReadinessRepository,
     IdempotencyRecordRepository,
     MembershipRepository,
     OrganisationRepository,
@@ -56,6 +57,7 @@ class FakeSession:
         self.scalars_results: list[FakeScalarResult[object]] = []
         self.scalar_statements: list[ClauseElement] = []
         self.scalars_statements: list[ClauseElement] = []
+        self.execute_statements: list[ClauseElement] = []
 
     def add(self, instance: object) -> None:
         self.added.append(instance)
@@ -77,6 +79,9 @@ class FakeSession:
         if not self.scalars_results:
             return FakeScalarResult(())
         return self.scalars_results.pop(0)
+
+    async def execute(self, statement: ClauseElement) -> None:
+        self.execute_statements.append(statement)
 
 
 def as_session(fake: FakeSession) -> AsyncSession:
@@ -102,6 +107,19 @@ def make_organisation(*, organisation_id: UUID | None = None) -> Organisation:
         name="Acme Demo",
         slug="acme-demo",
     )
+
+
+def test_database_readiness_repository_runs_minimal_select() -> None:
+    async def scenario() -> None:
+        fake = FakeSession()
+        readiness_repository = DatabaseReadinessRepository(as_session(fake))
+
+        await readiness_repository.check_postgresql()
+
+        assert len(fake.execute_statements) == 1
+        assert compile_sql(fake.execute_statements[0]) == "SELECT 1"
+
+    asyncio.run(scenario())
 
 
 def test_user_repository_creates_and_fetches_users_without_raw_passwords() -> None:

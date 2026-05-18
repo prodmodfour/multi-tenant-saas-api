@@ -2,7 +2,7 @@
 
 ## Current state
 
-Tickets 000 through 013 are complete. The repository has a Python 3.12 `src/` layout, FastAPI app shell, environment-backed settings, structured JSON logging, request ID propagation, async SQLAlchemy persistence, Alembic migrations, repository layer, local demo auth, RBAC/tenant context, organisation APIs, membership management, tenant-scoped project APIs, organisation API key management, API key project authentication, an audit log API, and idempotency support for selected unsafe creation endpoints.
+Tickets 000 through 014 are complete. The repository has a Python 3.12 `src/` layout, FastAPI app shell, environment-backed settings, structured JSON logging, request ID propagation, health/readiness endpoints, async SQLAlchemy persistence, Alembic migrations, repository layer, local demo auth, RBAC/tenant context, organisation APIs, membership management, tenant-scoped project APIs, organisation API key management, API key project authentication, an audit log API, and idempotency support for selected unsafe creation endpoints.
 
 Implemented application behaviour currently includes:
 
@@ -13,6 +13,7 @@ Implemented application behaviour currently includes:
 - `X-Request-ID` propagation and request-scoped log context
 - request-scoped async SQLAlchemy session dependency wiring
 - `GET /healthz`
+- `GET /readyz` with an aggregate readiness response and a PostgreSQL `SELECT 1` dependency check that returns `503` when the database is unavailable
 - `POST /auth/register` for local demo user registration with hashed password persistence only
 - `POST /auth/login` for local demo bearer-token login
 - `GET /me` for current active user and membership summaries
@@ -61,10 +62,10 @@ Implemented domain/schema/persistence contracts currently include:
 - password hashing and verification utilities using pwdlib's recommended Argon2id hasher
 - bearer access token creation/validation utilities using a local placeholder JWT signing secret setting
 - deterministic high-entropy API key generation and SHA-256 hashing utilities that persist only key hashes plus prefixes
-- service-layer DTOs for public auth, organisation, membership, project, API key, audit, RBAC, and idempotency workflows
+- service-layer DTOs for public auth, organisation, membership, project, API key, audit, RBAC, readiness, and idempotency workflows
 - secret-field rejection for idempotency response snapshots so obvious password, bearer-token, raw-key, and key-hash fields are not persisted for replay
 
-Readiness checks, metrics, Docker, and CI are not implemented yet.
+Prometheus metrics, Docker, and CI are not implemented yet.
 
 ## Quality gates
 
@@ -75,7 +76,7 @@ Ran `scripts/quality-gate.sh` successfully. The gate completed:
 - Ruff check
 - Ruff format check
 - mypy strict checks for `src` and `tests`
-- pytest with coverage (`95 passed`)
+- pytest with coverage (`101 passed`)
 
 ## Public-safety notes
 
@@ -95,21 +96,19 @@ The committed `example.env` uses local placeholder values only and is not suitab
 
 ## Latest cycle notes
 
-Implemented Ticket 013:
+Implemented Ticket 014:
 
-- added `multi_tenant_saas_api.services.idempotency` with deterministic validated-body hashing, principal/tenant/method/path/key scoping, replay detection, changed-body conflict detection, and secret-field snapshot rejection
-- added idempotency dependency wiring and HTTP replay/conflict helpers
-- integrated optional `Idempotency-Key` handling into `POST /orgs`, `POST /orgs/{org_id}/projects`, and `POST /orgs/{org_id}/api-keys`
-- stored replay snapshots only after successful creation responses and returned matching stored responses with `Idempotency-Replayed: true`
-- returned `409 Conflict` when the same principal/method/path/organisation/key is reused with a different request body hash
-- enforced current tenant permissions before organisation-scoped idempotent replay for project creation and API key creation
-- sanitized API key creation idempotency snapshots so raw API key material is not persisted or returned on replay; replay responses include API key metadata plus an `idempotency_replay` note
-- updated README and docs to describe idempotency scope, replay/conflict behaviour, and the API key replay safety posture
-- added API tests for idempotent replay, changed-body conflict, tenant-scoped project idempotency records, and no raw API key leakage in API key idempotency snapshots or replay responses
+- added `multi_tenant_saas_api.repositories.readiness.DatabaseReadinessRepository` to own the minimal SQLAlchemy `SELECT 1` database check
+- added `multi_tenant_saas_api.services.readiness.ReadinessService` with secret-safe aggregate dependency status DTOs
+- added request dependency wiring for readiness checks without placing SQLAlchemy calls in route handlers
+- added `GET /readyz`, returning `200` and `status: "ready"` when PostgreSQL responds and `503` with `status: "not_ready"` when the PostgreSQL check fails
+- shaped readiness failure responses so they identify the `postgresql` dependency without exposing database URLs, credentials, or driver exception details
+- updated README to document `/readyz`, its PostgreSQL dependency, and its `503` not-ready behaviour
+- added route tests with fake readiness services, service tests with fake database collaborators, and a repository test for the minimal readiness query
 
 Limitations:
 
-- Readiness checks, Prometheus metrics, Docker Compose, and CI are not implemented yet.
+- Prometheus metrics, Docker Compose, and CI are not implemented yet.
 - API keys currently have fixed project read/write capability for their owning organisation; fine-grained API key scopes are not implemented.
 - Idempotency expiry cleanup and simultaneous first-request concurrency hardening are not implemented; production systems should use transactional first-writer handling and operational cleanup.
 - API key hashes use deterministic SHA-256 over high-entropy generated keys for demo lookup; production systems may add a dedicated secret pepper or managed key service.
@@ -118,4 +117,4 @@ Limitations:
 
 ## Next recommended ticket
 
-Ticket 014.
+Ticket 015.

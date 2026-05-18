@@ -3,17 +3,43 @@ from pytest import MonkeyPatch
 
 from multi_tenant_saas_api.app import create_app
 from multi_tenant_saas_api.config import Settings
+from multi_tenant_saas_api.dependencies import get_readiness_service
 from multi_tenant_saas_api.request_context import REQUEST_ID_HEADER
+from multi_tenant_saas_api.services import DependencyReadiness, ReadinessResult
 
 
 def build_client(*, docs_enabled: bool = False) -> TestClient:
-    settings = Settings(
+    return TestClient(create_app(make_settings(docs_enabled=docs_enabled)))
+
+
+def make_settings(*, docs_enabled: bool = False) -> Settings:
+    return Settings(
         app_name="multi-tenant-saas-api-test",
         environment="test",
         log_level="WARNING",
         docs_enabled=docs_enabled,
     )
-    return TestClient(create_app(settings))
+
+
+class FakeReadinessService:
+    def __init__(self, result: ReadinessResult) -> None:
+        self.result = result
+        self.calls = 0
+
+    async def check_readiness(self) -> ReadinessResult:
+        self.calls += 1
+        return self.result
+
+
+def build_client_with_readiness(result: ReadinessResult) -> tuple[TestClient, FakeReadinessService]:
+    app = create_app(make_settings())
+    readiness_service = FakeReadinessService(result)
+
+    def override_get_readiness_service() -> FakeReadinessService:
+        return readiness_service
+
+    app.dependency_overrides[get_readiness_service] = override_get_readiness_service
+    return TestClient(app), readiness_service
 
 
 def test_health_endpoint_returns_application_status() -> None:
@@ -39,6 +65,63 @@ def test_request_id_header_is_propagated() -> None:
 
     assert response.status_code == 200
     assert response.headers[REQUEST_ID_HEADER] == request_id
+
+
+def test_readiness_endpoint_returns_ready_when_postgresql_check_passes() -> None:
+    readiness = ReadinessResult(
+        status="ready",
+        checks=(
+            DependencyReadiness(
+                name="postgresql",
+                status="ok",
+                detail="PostgreSQL responded successfully",
+            ),
+        ),
+    )
+    client, readiness_service = build_client_with_readiness(readiness)
+
+    response = client.get("/readyz")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ready",
+        "checks": {
+            "postgresql": {
+                "status": "ok",
+                "detail": "PostgreSQL responded successfully",
+            }
+        },
+    }
+    assert response.headers[REQUEST_ID_HEADER]
+    assert readiness_service.calls == 1
+
+
+def test_readiness_endpoint_returns_503_when_postgresql_check_fails() -> None:
+    readiness = ReadinessResult(
+        status="not_ready",
+        checks=(
+            DependencyReadiness(
+                name="postgresql",
+                status="unavailable",
+                detail="PostgreSQL readiness check failed",
+            ),
+        ),
+    )
+    client, readiness_service = build_client_with_readiness(readiness)
+
+    response = client.get("/readyz")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "status": "not_ready",
+        "checks": {
+            "postgresql": {
+                "status": "unavailable",
+                "detail": "PostgreSQL readiness check failed",
+            }
+        },
+    }
+    assert readiness_service.calls == 1
 
 
 def test_docs_are_disabled_by_default() -> None:

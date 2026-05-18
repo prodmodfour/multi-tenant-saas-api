@@ -605,7 +605,7 @@ Commit when complete.
 
 ## 014 — Add readiness and dependency checks
 
-Status: TODO
+Status: DONE
 
 Implement:
 

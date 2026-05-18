@@ -20,6 +20,7 @@ from multi_tenant_saas_api.services import (
     PrincipalResolutionError,
     ProjectPrincipal,
     RBACService,
+    ReadinessService,
 )
 from multi_tenant_saas_api.services.auth_api import AuthAPIService
 from multi_tenant_saas_api.services.memberships import MembershipAPIService
@@ -115,6 +116,14 @@ def get_idempotency_service(
     return IdempotencyService(session=session)
 
 
+def get_readiness_service(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ReadinessService:
+    """Build the readiness check service for one request."""
+
+    return ReadinessService(session=session)
+
+
 def get_api_key_authentication_service(
     session: Annotated[AsyncSession, Depends(get_session)],
     rbac_service: Annotated[RBACService, Depends(get_rbac_service)],
@@ -194,6 +203,7 @@ __all__ = [
     "get_project_api_service",
     "get_project_principal",
     "get_rbac_service",
+    "get_readiness_service",
     "get_session",
     "get_settings_from_app",
     "require_bearer_token",

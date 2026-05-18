@@ -11,11 +11,13 @@ from multi_tenant_saas_api.repositories.idempotency import IdempotencyRecordRepo
 from multi_tenant_saas_api.repositories.memberships import MembershipRepository
 from multi_tenant_saas_api.repositories.organisations import OrganisationRepository
 from multi_tenant_saas_api.repositories.projects import ProjectRepository
+from multi_tenant_saas_api.repositories.readiness import DatabaseReadinessRepository
 from multi_tenant_saas_api.repositories.users import UserRepository
 
 __all__ = [
     "APIKeyRepository",
     "AuditEventRepository",
+    "DatabaseReadinessRepository",
     "IdempotencyRecordRepository",
     "MembershipRepository",
     "OrganisationRepository",
